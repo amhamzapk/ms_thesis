@@ -76,8 +76,7 @@ static int cpu_percpu_callback(
         break;
     case CPU_UP_CANCELED:
     case CPU_DEAD:
-    case CPU_RESUME_FAILED:
-        if ( !park_offline_cpus && system_state != SYS_STATE_suspend )
+        if ( !park_offline_cpus )
             free_percpu_area(cpu);
         break;
     case CPU_REMOVE:

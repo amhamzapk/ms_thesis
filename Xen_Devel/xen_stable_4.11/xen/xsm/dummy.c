@@ -18,7 +18,12 @@ struct xsm_operations dummy_xsm_ops;
 #define set_to_dummy_if_null(ops, function)                            \
     do {                                                               \
         if ( !ops->function )                                          \
+        {                                                              \
             ops->function = xsm_##function;                            \
+            if (ops != &dummy_xsm_ops)                                 \
+                dprintk(XENLOG_DEBUG, "Had to override the " #function \
+                    " security operation with the dummy one.\n");      \
+        }                                                              \
     } while (0)
 
 void __init xsm_fixup_ops (struct xsm_operations *ops)
@@ -103,7 +108,7 @@ void __init xsm_fixup_ops (struct xsm_operations *ops)
     set_to_dummy_if_null(ops, resource_setup_misc);
 
     set_to_dummy_if_null(ops, page_offline);
-    set_to_dummy_if_null(ops, hypfs_op);
+    set_to_dummy_if_null(ops, tmem_op);
     set_to_dummy_if_null(ops, hvm_param);
     set_to_dummy_if_null(ops, hvm_control);
     set_to_dummy_if_null(ops, hvm_param_nested);
@@ -121,7 +126,7 @@ void __init xsm_fixup_ops (struct xsm_operations *ops)
 
     set_to_dummy_if_null(ops, vm_event_control);
 
-#ifdef CONFIG_MEM_ACCESS
+#ifdef CONFIG_HAS_MEM_ACCESS
     set_to_dummy_if_null(ops, mem_access);
 #endif
 
@@ -129,7 +134,7 @@ void __init xsm_fixup_ops (struct xsm_operations *ops)
     set_to_dummy_if_null(ops, mem_paging);
 #endif
 
-#ifdef CONFIG_MEM_SHARING
+#ifdef CONFIG_HAS_MEM_SHARING
     set_to_dummy_if_null(ops, mem_sharing);
 #endif
 
@@ -152,10 +157,4 @@ void __init xsm_fixup_ops (struct xsm_operations *ops)
 #endif
     set_to_dummy_if_null(ops, xen_version);
     set_to_dummy_if_null(ops, domain_resource_map);
-#ifdef CONFIG_ARGO
-    set_to_dummy_if_null(ops, argo_enable);
-    set_to_dummy_if_null(ops, argo_register_single_source);
-    set_to_dummy_if_null(ops, argo_register_any_source);
-    set_to_dummy_if_null(ops, argo_send);
-#endif
 }

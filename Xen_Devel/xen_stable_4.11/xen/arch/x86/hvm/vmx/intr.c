@@ -37,7 +37,6 @@
 #include <asm/hvm/nestedhvm.h>
 #include <public/hvm/ioreq.h>
 #include <asm/hvm/trace.h>
-#include <asm/vm_event.h>
 
 /*
  * A few notes on virtual NMI and INTR delivery, and interactions with
@@ -107,9 +106,9 @@ static void vmx_enable_intr_window(struct vcpu *v, struct hvm_intack intack)
         ctl = CPU_BASED_VIRTUAL_NMI_PENDING;
     }
 
-    if ( !(v->arch.hvm.vmx.exec_control & ctl) )
+    if ( !(v->arch.hvm_vmx.exec_control & ctl) )
     {
-        v->arch.hvm.vmx.exec_control |= ctl;
+        v->arch.hvm_vmx.exec_control |= ctl;
         vmx_update_cpu_exec_control(v);
     }
 }
@@ -138,7 +137,7 @@ static void vmx_enable_intr_window(struct vcpu *v, struct hvm_intack intack)
  *  Unfortunately, interrupt blocking in L2 won't work with simple
  *  intr_window_open (which depends on L2's IF). To solve this,
  *  the following algorithm can be used:
- *   v->arch.hvm.vmx.exec_control.VIRTUAL_INTR_PENDING now denotes
+ *   v->arch.hvm_vmx.exec_control.VIRTUAL_INTR_PENDING now denotes
  *   only L0 control, physical control may be different from it.
  *       - if in L1, it behaves normally, intr window is written
  *         to physical control as it is
@@ -209,7 +208,7 @@ static int nvmx_intr_intercept(struct vcpu *v, struct hvm_intack intack)
                 if ( unlikely(intack.source != hvm_intsrc_none) )
                     vmx_enable_intr_window(v, intack);
             }
-            else if ( !cpu_has_vmx_virtual_intr_delivery )
+            else
                 vmx_enable_intr_window(v, intack);
 
             return 1;
@@ -224,18 +223,6 @@ static int nvmx_intr_intercept(struct vcpu *v, struct hvm_intack intack)
     return 0;
 }
 
-void vmx_sync_exit_bitmap(struct vcpu *v)
-{
-    const unsigned int n = ARRAY_SIZE(v->arch.hvm.vmx.eoi_exit_bitmap);
-    unsigned int i;
-
-    while ( (i = find_first_bit(&v->arch.hvm.vmx.eoi_exitmap_changed, n)) < n )
-    {
-        clear_bit(i, &v->arch.hvm.vmx.eoi_exitmap_changed);
-        __vmwrite(EOI_EXIT_BITMAP(i), v->arch.hvm.vmx.eoi_exit_bitmap[i]);
-    }
-}
-
 void vmx_intr_assist(void)
 {
     struct hvm_intack intack;
@@ -245,22 +232,12 @@ void vmx_intr_assist(void)
     int pt_vector;
 
     /* Block event injection when single step with MTF. */
-    if ( unlikely(v->arch.hvm.single_step) )
+    if ( unlikely(v->arch.hvm_vcpu.single_step) )
     {
-        v->arch.hvm.vmx.exec_control |= CPU_BASED_MONITOR_TRAP_FLAG;
+        v->arch.hvm_vmx.exec_control |= CPU_BASED_MONITOR_TRAP_FLAG;
         vmx_update_cpu_exec_control(v);
         return;
     }
-
-    /* Block event injection while handling a sync vm_event. */
-    if ( unlikely(v->arch.vm_event) && v->arch.vm_event->sync_event )
-        return;
-
-#ifdef CONFIG_MEM_SHARING
-    /* Block event injection for VM fork if requested */
-    if ( unlikely(v->domain->arch.hvm.mem_sharing.block_interrupts) )
-        return;
-#endif
 
     /* Crank the handle on interrupt state. */
     pt_vector = pt_update_irq(v);
@@ -336,6 +313,7 @@ void vmx_intr_assist(void)
               intack.source != hvm_intsrc_vector )
     {
         unsigned long status;
+        unsigned int i, n;
 
        /*
         * intack.vector is the highest priority vector. So we set eoi_exit_bitmap
@@ -369,17 +347,17 @@ void vmx_intr_assist(void)
                 {
                     word = (const void *)&vlapic->regs->data[APIC_IRR];
                     printk(XENLOG_ERR "vIRR:");
-                    for ( i = X86_NR_VECTORS / 32; i-- ; )
+                    for ( i = NR_VECTORS / 32; i-- ; )
                         printk(" %08x", word[i*4]);
                     printk("\n");
                 }
 
-                pi_desc = &v->arch.hvm.vmx.pi_desc;
+                pi_desc = &v->arch.hvm_vmx.pi_desc;
                 if ( pi_desc )
                 {
                     word = (const void *)&pi_desc->pir;
                     printk(XENLOG_ERR " PIR:");
-                    for ( i = X86_NR_VECTORS / 32; i-- ; )
+                    for ( i = NR_VECTORS / 32; i-- ; )
                         printk(" %08x", word[i]);
                     printk("\n");
                 }
@@ -396,7 +374,13 @@ void vmx_intr_assist(void)
                     intack.vector;
         __vmwrite(GUEST_INTR_STATUS, status);
 
-        vmx_sync_exit_bitmap(v);
+        n = ARRAY_SIZE(v->arch.hvm_vmx.eoi_exit_bitmap);
+        while ( (i = find_first_bit(&v->arch.hvm_vmx.eoi_exitmap_changed,
+                                    n)) < n )
+        {
+            clear_bit(i, &v->arch.hvm_vmx.eoi_exitmap_changed);
+            __vmwrite(EOI_EXIT_BITMAP(i), v->arch.hvm_vmx.eoi_exit_bitmap[i]);
+        }
 
         pt_intr_post(v, intack);
     }

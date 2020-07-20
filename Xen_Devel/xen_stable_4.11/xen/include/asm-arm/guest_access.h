@@ -40,7 +40,7 @@ int access_guest_memory_by_ipa(struct domain *d, paddr_t ipa, void *buf,
     (XEN_GUEST_HANDLE_PARAM(type)) { _x };            \
 })
 
-/* Convert a XEN_GUEST_HANDLE to XEN_GUEST_HANDLE_PARAM */
+/* Cast a XEN_GUEST_HANDLE to XEN_GUEST_HANDLE_PARAM */
 #define guest_handle_to_param(hnd, type) ({                  \
     typeof((hnd).p) _x = (hnd).p;                            \
     XEN_GUEST_HANDLE_PARAM(type) _y = { _x };                \
@@ -51,8 +51,17 @@ int access_guest_memory_by_ipa(struct domain *d, paddr_t ipa, void *buf,
     _y;                                                      \
 })
 
-#define guest_handle_for_field(hnd, type, fld)          \
-    ((XEN_GUEST_HANDLE(type)) { &(hnd).p->fld })
+
+/* Cast a XEN_GUEST_HANDLE_PARAM to XEN_GUEST_HANDLE */
+#define guest_handle_from_param(hnd, type) ({               \
+    typeof((hnd).p) _x = (hnd).p;                           \
+    XEN_GUEST_HANDLE(type) _y = { _x };                     \
+    /* type checking: make sure that the pointers inside    \
+     * XEN_GUEST_HANDLE and XEN_GUEST_HANDLE_PARAM are of   \
+     * the same type, then return hnd */                    \
+    (void)(&_x == &_y.p);                                   \
+    _y;                                                     \
+})
 
 #define guest_handle_from_ptr(ptr, type)        \
     ((XEN_GUEST_HANDLE_PARAM(type)) { (type *)ptr })
@@ -66,9 +75,7 @@ int access_guest_memory_by_ipa(struct domain *d, paddr_t ipa, void *buf,
 #define copy_to_guest_offset(hnd, off, ptr, nr) ({      \
     const typeof(*(ptr)) *_s = (ptr);                   \
     char (*_d)[sizeof(*_s)] = (void *)(hnd).p;          \
-    /* Check that the handle is not for a const type */ \
-    void *__maybe_unused _t = (hnd).p;                  \
-    (void)((hnd).p == _s);                              \
+    ((void)((hnd).p == (ptr)));                         \
     raw_copy_to_guest(_d+(off), _s, sizeof(*_s)*(nr));  \
 })
 
@@ -95,7 +102,7 @@ int access_guest_memory_by_ipa(struct domain *d, paddr_t ipa, void *buf,
 #define copy_field_to_guest(hnd, ptr, field) ({         \
     const typeof(&(ptr)->field) _s = &(ptr)->field;     \
     void *_d = &(hnd).p->field;                         \
-    (void)(&(hnd).p->field == _s);                      \
+    ((void)(&(hnd).p->field == &(ptr)->field));         \
     raw_copy_to_guest(_d, _s, sizeof(*_s));             \
 })
 
@@ -117,9 +124,7 @@ int access_guest_memory_by_ipa(struct domain *d, paddr_t ipa, void *buf,
 #define __copy_to_guest_offset(hnd, off, ptr, nr) ({    \
     const typeof(*(ptr)) *_s = (ptr);                   \
     char (*_d)[sizeof(*_s)] = (void *)(hnd).p;          \
-    /* Check that the handle is not for a const type */ \
-    void *__maybe_unused _t = (hnd).p;                  \
-    (void)((hnd).p == _s);                              \
+    ((void)((hnd).p == (ptr)));                         \
     __raw_copy_to_guest(_d+(off), _s, sizeof(*_s)*(nr));\
 })
 
@@ -136,7 +141,7 @@ int access_guest_memory_by_ipa(struct domain *d, paddr_t ipa, void *buf,
 #define __copy_field_to_guest(hnd, ptr, field) ({       \
     const typeof(&(ptr)->field) _s = &(ptr)->field;     \
     void *_d = &(hnd).p->field;                         \
-    (void)(&(hnd).p->field == _s);                      \
+    ((void)(&(hnd).p->field == &(ptr)->field));         \
     __raw_copy_to_guest(_d, _s, sizeof(*_s));           \
 })
 

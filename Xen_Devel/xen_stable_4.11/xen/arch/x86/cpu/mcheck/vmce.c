@@ -28,7 +28,6 @@
 #include <xen/mm.h>
 #include <asm/hvm/save.h>
 #include <asm/processor.h>
-#include <public/hvm/params.h>
 #include <public/sysctl.h>
 #include <asm/system.h>
 #include <asm/msr.h>
@@ -155,7 +154,6 @@ static int bank_mce_rdmsr(const struct vcpu *v, uint32_t msr, uint64_t *val)
             break;
 
         case X86_VENDOR_AMD:
-        case X86_VENDOR_HYGON:
             ret = vmce_amd_rdmsr(v, msr, val);
             break;
 
@@ -286,7 +284,6 @@ static int bank_mce_wrmsr(struct vcpu *v, uint32_t msr, uint64_t val)
             break;
 
         case X86_VENDOR_AMD:
-        case X86_VENDOR_HYGON:
             ret = vmce_amd_wrmsr(v, msr, val);
             break;
 
@@ -352,17 +349,26 @@ int vmce_wrmsr(uint32_t msr, uint64_t val)
     return ret;
 }
 
-#if CONFIG_HVM
-static int vmce_save_vcpu_ctxt(struct vcpu *v, hvm_domain_context_t *h)
+static int vmce_save_vcpu_ctxt(struct domain *d, hvm_domain_context_t *h)
 {
-    struct hvm_vmce_vcpu ctxt = {
-        .caps = v->arch.vmce.mcg_cap,
-        .mci_ctl2_bank0 = v->arch.vmce.bank[0].mci_ctl2,
-        .mci_ctl2_bank1 = v->arch.vmce.bank[1].mci_ctl2,
-        .mcg_ext_ctl = v->arch.vmce.mcg_ext_ctl,
-    };
+    struct vcpu *v;
+    int err = 0;
 
-    return hvm_save_entry(VMCE_VCPU, v->vcpu_id, h, &ctxt);
+    for_each_vcpu ( d, v )
+    {
+        struct hvm_vmce_vcpu ctxt = {
+            .caps = v->arch.vmce.mcg_cap,
+            .mci_ctl2_bank0 = v->arch.vmce.bank[0].mci_ctl2,
+            .mci_ctl2_bank1 = v->arch.vmce.bank[1].mci_ctl2,
+            .mcg_ext_ctl = v->arch.vmce.mcg_ext_ctl,
+        };
+
+        err = hvm_save_entry(VMCE_VCPU, v->vcpu_id, h, &ctxt);
+        if ( err )
+            break;
+    }
+
+    return err;
 }
 
 static int vmce_load_vcpu_ctxt(struct domain *d, hvm_domain_context_t *h)
@@ -386,7 +392,6 @@ static int vmce_load_vcpu_ctxt(struct domain *d, hvm_domain_context_t *h)
 
 HVM_REGISTER_SAVE_RESTORE(VMCE_VCPU, vmce_save_vcpu_ctxt,
                           vmce_load_vcpu_ctxt, 1, HVMSR_PER_VCPU);
-#endif
 
 /*
  * for Intel MCE, broadcast vMCE to all vcpus
@@ -413,7 +418,7 @@ int inject_vmce(struct domain *d, int vcpu)
 
         if ( (is_hvm_domain(d) ||
               pv_trap_callback_registered(v, TRAP_machine_check)) &&
-             !test_and_set_bool(v->arch.mce_pending) )
+             !test_and_set_bool(v->mce_pending) )
         {
             mce_printk(MCE_VERBOSE, "MCE: inject vMCE to %pv\n", v);
             vcpu_kick(v);
@@ -535,7 +540,7 @@ int unmmap_broken_page(struct domain *d, mfn_t mfn, unsigned long gfn)
     r_mfn = get_gfn_query(d, gfn, &pt);
     if ( p2m_to_mask(pt) & P2M_UNMAP_TYPES)
     {
-        ASSERT(mfn_eq(r_mfn, mfn));
+        ASSERT(mfn_x(r_mfn) == mfn_x(mfn));
         rc = p2m_change_type_one(d, gfn, pt, p2m_ram_broken);
     }
     put_gfn(d, gfn);

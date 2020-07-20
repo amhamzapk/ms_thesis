@@ -53,7 +53,6 @@ typedef struct XLU_ConfigSetting { /* transparent */
     struct XLU_ConfigSetting *next;
     char *name;
     XLU_ConfigValue *value;
-    enum XLU_Operation op;
     int lineno;
 } XLU_ConfigSetting;
 

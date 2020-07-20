@@ -53,15 +53,6 @@ const char *libxl__ovmf_path(void)
 #endif
 }
 
-const char *libxl__ipxe_path(void)
-{
-#ifdef IPXE_PATH
-    return IPXE_PATH;
-#else
-    return NULL;
-#endif
-}
-
 /*
  * Local variables:
  * mode: C

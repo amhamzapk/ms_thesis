@@ -16,7 +16,7 @@
  *  along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <xenfsimage_grub.h>
+#include <fsimage_grub.h>
 
 #define	mapblock1 (*fsig_int1(ffi))
 #define	mapblock2 (*fsig_int2(ffi))

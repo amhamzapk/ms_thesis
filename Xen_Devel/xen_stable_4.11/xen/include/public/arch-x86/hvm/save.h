@@ -1,7 +1,7 @@
-/*
+/* 
  * Structure definitions for HVM state that is held by Xen and must
  * be saved along with the domain's memory and device-model state.
- *
+ * 
  * Copyright (c) 2007 XenSource Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,10 +26,8 @@
 #ifndef __XEN_PUBLIC_HVM_SAVE_X86_H__
 #define __XEN_PUBLIC_HVM_SAVE_X86_H__
 
-#include "../../xen.h"
-
-/*
- * Save/restore header: general info about the save file.
+/* 
+ * Save/restore header: general info about the save file. 
  */
 
 #define HVM_FILE_MAGIC   0x54381286
@@ -87,7 +85,7 @@ struct hvm_hw_cpu {
     uint64_t dr2;
     uint64_t dr3;
     uint64_t dr6;
-    uint64_t dr7;
+    uint64_t dr7;    
 
     uint32_t cs_sel;
     uint32_t ds_sel;
@@ -201,7 +199,7 @@ struct hvm_hw_cpu_compat {
     uint64_t dr2;
     uint64_t dr3;
     uint64_t dr6;
-    uint64_t dr7;
+    uint64_t dr7;    
 
     uint32_t cs_sel;
     uint32_t ds_sel;
@@ -465,7 +463,7 @@ struct hvm_hw_pci_link {
 
 DECLARE_HVM_SAVE_TYPE(PCI_LINK, 9, struct hvm_hw_pci_link);
 
-/*
+/* 
  *  PIT
  */
 
@@ -491,9 +489,9 @@ struct hvm_hw_pit {
 DECLARE_HVM_SAVE_TYPE(PIT, 10, struct hvm_hw_pit);
 
 
-/*
+/* 
  * RTC
- */
+ */ 
 
 #define RTC_CMOS_SIZE 14
 struct hvm_hw_rtc {
@@ -502,8 +500,6 @@ struct hvm_hw_rtc {
     /* Index register for 2-part operations */
     uint8_t cmos_index;
     uint8_t pad0;
-    /* RTC offset from host time */
-    int64_t rtc_offset;
 };
 
 DECLARE_HVM_SAVE_TYPE(RTC, 11, struct hvm_hw_rtc);
@@ -604,12 +600,8 @@ DECLARE_HVM_SAVE_TYPE(VIRIDIAN_DOMAIN, 15, struct hvm_viridian_domain_context);
 
 struct hvm_viridian_vcpu_context {
     uint64_t vp_assist_msr;
-    uint8_t  apic_assist_pending;
+    uint8_t  vp_assist_pending;
     uint8_t  _pad[7];
-    uint64_t simp_msr;
-    uint64_t sint_msr[16];
-    uint64_t stimer_config_msr[4];
-    uint64_t stimer_count_msr[4];
 };
 
 DECLARE_HVM_SAVE_TYPE(VIRIDIAN_VCPU, 17, struct hvm_viridian_vcpu_context);
@@ -636,14 +628,18 @@ struct hvm_msr {
         uint32_t index;
         uint32_t _rsvd;
         uint64_t val;
-    } msr[XEN_FLEX_ARRAY_DIM];
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+    } msr[];
+#elif defined(__GNUC__)
+    } msr[0];
+#else
+    } msr[1 /* variable size */];
+#endif
 };
 
 #define CPU_MSR_CODE  20
 
-/* Range 22 - 34 (inclusive) reserved for Amazon */
-
-/*
+/* 
  * Largest type-code in use
  */
 #define HVM_SAVE_CODE_MAX 20

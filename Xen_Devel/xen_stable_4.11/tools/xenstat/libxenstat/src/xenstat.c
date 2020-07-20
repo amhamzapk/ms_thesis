@@ -131,6 +131,33 @@ void xenstat_uninit(xenstat_handle * handle)
 	}
 }
 
+static inline unsigned long long parse(char *s, char *match)
+{
+	char *s1 = strstr(s,match);
+	unsigned long long ret;
+
+	if ( s1 == NULL )
+		return 0LL;
+	s1 += 2;
+	if ( *s1++ != ':' )
+		return 0LL;
+	sscanf(s1,"%llu",&ret);
+	return ret;
+}
+
+void domain_get_tmem_stats(xenstat_handle * handle, xenstat_domain * domain)
+{
+	char buffer[4096];
+
+	if (xc_tmem_control(handle->xc_handle,-1,XEN_SYSCTL_TMEM_OP_LIST,domain->id,
+                        sizeof(buffer),-1,buffer) < 0)
+		return;
+	domain->tmem_stats.curr_eph_pages = parse(buffer,"Ec");
+	domain->tmem_stats.succ_eph_gets = parse(buffer,"Ge");
+	domain->tmem_stats.succ_pers_puts = parse(buffer,"Pp");
+	domain->tmem_stats.succ_pers_gets = parse(buffer,"Gp");
+}
+
 xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 {
 #define DOMAIN_CHUNK_SIZE 256
@@ -139,6 +166,7 @@ xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 	xc_domaininfo_t domaininfo[DOMAIN_CHUNK_SIZE];
 	int new_domains;
 	unsigned int i;
+	int rc;
 
 	/* Create the node */
 	node = (xenstat_node *) calloc(1, sizeof(xenstat_node));
@@ -162,7 +190,9 @@ xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 	node->free_mem = ((unsigned long long)physinfo.free_pages)
 	    * handle->page_size;
 
-	node->freeable_mb = 0;
+	rc = xc_tmem_control(handle->xc_handle, -1,
+                         XEN_SYSCTL_TMEM_OP_QUERY_FREEABLE_MB, -1, 0, 0, NULL);
+	node->freeable_mb = (rc < 0) ? 0 : rc;
 	/* malloc(0) is not portable, so allocate a single domain.  This will
 	 * be resized below. */
 	node->domains = malloc(sizeof(xenstat_domain));
@@ -230,6 +260,7 @@ xenstat_node *xenstat_get_node(xenstat_handle * handle, unsigned int flags)
 			domain->networks = NULL;
 			domain->num_vbds = 0;
 			domain->vbds = NULL;
+			domain_get_tmem_stats(handle,domain);
 
 			domain++;
 			node->num_domains++;
@@ -698,11 +729,39 @@ unsigned long long xenstat_vbd_wr_sects(xenstat_vbd * vbd)
 	return vbd->wr_sects;
 }
 
-/* Returns error while getting stats (1 if error happened, 0 otherwise) */
-bool xenstat_vbd_error(xenstat_vbd * vbd)
+/*
+ * Tmem functions
+ */
+
+xenstat_tmem *xenstat_domain_tmem(xenstat_domain * domain)
 {
-	return vbd->error;
+	return &domain->tmem_stats;
 }
+
+/* Get the current number of ephemeral pages */
+unsigned long long xenstat_tmem_curr_eph_pages(xenstat_tmem *tmem)
+{
+	return tmem->curr_eph_pages;
+}
+
+/* Get the number of successful ephemeral gets */
+unsigned long long xenstat_tmem_succ_eph_gets(xenstat_tmem *tmem)
+{
+	return tmem->succ_eph_gets;
+}
+
+/* Get the number of successful persistent puts */
+unsigned long long xenstat_tmem_succ_pers_puts(xenstat_tmem *tmem)
+{
+	return tmem->succ_pers_puts;
+}
+
+/* Get the number of successful persistent gets */
+unsigned long long xenstat_tmem_succ_pers_gets(xenstat_tmem *tmem)
+{
+	return tmem->succ_pers_gets;
+}
+
 
 static char *xenstat_get_domain_name(xenstat_handle *handle, unsigned int domain_id)
 {

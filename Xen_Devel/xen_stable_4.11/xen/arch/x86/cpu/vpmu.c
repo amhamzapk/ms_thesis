@@ -22,7 +22,6 @@
 #include <xen/event.h>
 #include <xen/guest_access.h>
 #include <xen/cpu.h>
-#include <xen/param.h>
 #include <asm/regs.h>
 #include <asm/types.h>
 #include <asm/msr.h>
@@ -35,7 +34,6 @@
 #include <asm/hvm/svm/svm.h>
 #include <asm/hvm/svm/vmcb.h>
 #include <asm/apic.h>
-#include <irq_vectors.h>
 #include <public/pmu.h>
 #include <xsm/xsm.h>
 
@@ -44,10 +42,20 @@ CHECK_pmu_cntr_pair;
 CHECK_pmu_data;
 CHECK_pmu_params;
 
+/*
+ * "vpmu" :     vpmu generally enabled (all counters)
+ * "vpmu=off"  : vpmu generally disabled
+ * "vpmu=bts"  : vpmu enabled and Intel BTS feature switched on.
+ * "vpmu=ipc"  : vpmu enabled for IPC counters only (most restrictive)
+ * "vpmu=arch" : vpmu enabled for predef arch counters only (restrictive)
+ * flag combinations are allowed, eg, "vpmu=ipc,bts".
+ */
 static unsigned int __read_mostly opt_vpmu_enabled;
 unsigned int __read_mostly vpmu_mode = XENPMU_MODE_OFF;
 unsigned int __read_mostly vpmu_features = 0;
 bool __read_mostly opt_rtm_abort;
+static int parse_vpmu_params(const char *s);
+custom_param("vpmu", parse_vpmu_params);
 
 static DEFINE_SPINLOCK(vpmu_lock);
 static unsigned vpmu_count;
@@ -57,43 +65,45 @@ static DEFINE_PER_CPU(struct vcpu *, last_vcpu);
 static int __init parse_vpmu_params(const char *s)
 {
     const char *ss;
-    int rc = 0, val;
 
-    do {
-        ss = strchr(s, ',');
-        if ( !ss )
-            ss = strchr(s, '\0');
+    switch ( parse_bool(s, NULL) )
+    {
+    case 0:
+        break;
+    default:
+        do {
+            int val;
 
-        if ( (val = parse_bool(s, ss)) >= 0 )
-        {
-            opt_vpmu_enabled = val;
-            if ( !val )
-                vpmu_features = 0;
-        }
-        else if ( !cmdline_strcmp(s, "bts") )
-            vpmu_features |= XENPMU_FEATURE_INTEL_BTS;
-        else if ( !cmdline_strcmp(s, "ipc") )
-            vpmu_features |= XENPMU_FEATURE_IPC_ONLY;
-        else if ( !cmdline_strcmp(s, "arch") )
-            vpmu_features |= XENPMU_FEATURE_ARCH_ONLY;
-        else if ( (val = parse_boolean("rtm-abort", s, ss)) >= 0 )
-            opt_rtm_abort = val;
-        else
-            rc = -EINVAL;
+            ss = strchr(s, ',');
+            if ( !ss )
+                ss = strchr(s, '\0');
 
-        s = ss + 1;
-    } while ( *ss );
+            if ( !cmdline_strcmp(s, "bts") )
+                vpmu_features |= XENPMU_FEATURE_INTEL_BTS;
+            else if ( !cmdline_strcmp(s, "ipc") )
+                vpmu_features |= XENPMU_FEATURE_IPC_ONLY;
+            else if ( !cmdline_strcmp(s, "arch") )
+                vpmu_features |= XENPMU_FEATURE_ARCH_ONLY;
+            else if ( (val = parse_boolean("rtm-abort", s, ss)) >= 0 )
+                opt_rtm_abort = val;
+            else
+                return -EINVAL;
 
-    /* Selecting bts/ipc/arch implies vpmu=1. */
-    if ( vpmu_features )
-        opt_vpmu_enabled = true;
+            s = ss + 1;
+        } while ( *ss );
 
-    if ( opt_vpmu_enabled )
+        if ( !vpmu_features ) /* rtm-abort doesn't imply vpmu=1 */
+            break;
+
+        /* fall through */
+    case 1:
+        /* Default VPMU mode */
         vpmu_mode = XENPMU_MODE_SELF;
-
-    return rc;
+        opt_vpmu_enabled = 1;
+        break;
+    }
+    return 0;
 }
-custom_param("vpmu", parse_vpmu_params);
 
 void vpmu_lvtpc_update(uint32_t val)
 {
@@ -180,10 +190,8 @@ void vpmu_do_interrupt(struct cpu_user_regs *regs)
 {
     struct vcpu *sampled = current, *sampling;
     struct vpmu_struct *vpmu;
-#ifdef CONFIG_HVM
     struct vlapic *vlapic;
-    uint32_t vlapic_lvtpc;
-#endif
+    u32 vlapic_lvtpc;
 
     /*
      * dom0 will handle interrupt for special domains (e.g. idle domain) or,
@@ -288,7 +296,7 @@ void vpmu_do_interrupt(struct cpu_user_regs *regs)
                 hvm_get_segment_register(sampled, x86_seg_ss, &seg);
                 r->ss = seg.sel;
                 r->cpl = seg.dpl;
-                if ( !(sampled->arch.hvm.guest_cr[0] & X86_CR0_PE) )
+                if ( !(sampled->arch.hvm_vcpu.guest_cr[0] & X86_CR0_PE) )
                     *flags |= PMU_SAMPLE_REAL;
             }
         }
@@ -310,7 +318,6 @@ void vpmu_do_interrupt(struct cpu_user_regs *regs)
         return;
     }
 
-#ifdef CONFIG_HVM
     /* HVM guests */
     vlapic = vcpu_vlapic(sampling);
 
@@ -329,15 +336,14 @@ void vpmu_do_interrupt(struct cpu_user_regs *regs)
         vlapic_set_irq(vlapic, vlapic_lvtpc & APIC_VECTOR_MASK, 0);
         break;
     case APIC_MODE_NMI:
-        sampling->arch.nmi_pending = true;
+        sampling->nmi_pending = 1;
         break;
     }
-#endif
 }
 
 static void vpmu_save_force(void *arg)
 {
-    struct vcpu *v = arg;
+    struct vcpu *v = (struct vcpu *)arg;
     struct vpmu_struct *vpmu = vcpu_vpmu(v);
 
     if ( !vpmu_is_set(vpmu, VPMU_CONTEXT_LOADED) )
@@ -458,7 +464,6 @@ static int vpmu_arch_initialise(struct vcpu *v)
     switch ( vendor )
     {
     case X86_VENDOR_AMD:
-    case X86_VENDOR_HYGON:
         ret = svm_vpmu_initialise(v);
         break;
 
@@ -866,7 +871,10 @@ static int __init vpmu_init(void)
     int vendor = current_cpu_data.x86_vendor;
 
     if ( !opt_vpmu_enabled )
+    {
+        printk(XENLOG_INFO "VPMU: disabled\n");
         return 0;
+    }
 
     /* NMI watchdog uses LVTPC and HW counter */
     if ( opt_watchdog && opt_vpmu_enabled )
@@ -883,17 +891,10 @@ static int __init vpmu_init(void)
         if ( amd_vpmu_init() )
            vpmu_mode = XENPMU_MODE_OFF;
         break;
-
-    case X86_VENDOR_HYGON:
-        if ( hygon_vpmu_init() )
-           vpmu_mode = XENPMU_MODE_OFF;
-        break;
-
     case X86_VENDOR_INTEL:
         if ( core2_vpmu_init() )
            vpmu_mode = XENPMU_MODE_OFF;
         break;
-
     default:
         printk(XENLOG_WARNING "VPMU: Unknown CPU vendor: %d. "
                "Turning VPMU off.\n", vendor);

@@ -59,10 +59,6 @@ int arch_monitor_domctl_op(struct domain *d, struct xen_domctl_monitor_op *mop)
         domain_unpause(d);
         break;
 
-    case XEN_DOMCTL_MONITOR_OP_CONTROL_REGISTERS:
-        d->arch.monitor.control_register_values = true;
-        break;
-
     default:
         rc = -EOPNOTSUPP;
     }
@@ -87,14 +83,18 @@ static inline uint32_t arch_monitor_get_capabilities(struct domain *d)
                     (1U << XEN_DOMCTL_MONITOR_EVENT_INTERRUPT) |
                     (1U << XEN_DOMCTL_MONITOR_EVENT_CPUID) |
                     (1U << XEN_DOMCTL_MONITOR_EVENT_DEBUG_EXCEPTION) |
-                    (1U << XEN_DOMCTL_MONITOR_EVENT_WRITE_CTRLREG) |
-                    (1U << XEN_DOMCTL_MONITOR_EVENT_EMUL_UNIMPLEMENTED) |
-                    (1U << XEN_DOMCTL_MONITOR_EVENT_INGUEST_PAGEFAULT));
+                    (1U << XEN_DOMCTL_MONITOR_EVENT_WRITE_CTRLREG));
 
-    if ( hvm_is_singlestep_supported() )
-        capabilities |= (1U << XEN_DOMCTL_MONITOR_EVENT_SINGLESTEP);
+    if ( cpu_has_vmx )
+    {
+        capabilities |= (1U << XEN_DOMCTL_MONITOR_EVENT_EMUL_UNIMPLEMENTED);
 
-    if ( hvm_has_set_descriptor_access_exiting() )
+        /* Since we know this is on VMX, we can just call the hvm func */
+        if ( hvm_is_singlestep_supported() )
+            capabilities |= (1U << XEN_DOMCTL_MONITOR_EVENT_SINGLESTEP);
+    }
+
+    if ( hvm_funcs.set_descriptor_access_exiting )
         capabilities |= (1U << XEN_DOMCTL_MONITOR_EVENT_DESC_ACCESS);
 
     return capabilities;
@@ -103,22 +103,9 @@ static inline uint32_t arch_monitor_get_capabilities(struct domain *d)
 int arch_monitor_domctl_event(struct domain *d,
                               struct xen_domctl_monitor_op *mop);
 
-#ifdef CONFIG_HVM
-
 int arch_monitor_init_domain(struct domain *d);
 
 void arch_monitor_cleanup_domain(struct domain *d);
-
-#else
-
-static inline int arch_monitor_init_domain(struct domain *d)
-{
-    return -EOPNOTSUPP;
-}
-
-static inline void arch_monitor_cleanup_domain(struct domain *d) {}
-
-#endif
 
 bool monitored_msr(const struct domain *d, u32 msr);
 bool monitored_msr_onchangeonly(const struct domain *d, u32 msr);

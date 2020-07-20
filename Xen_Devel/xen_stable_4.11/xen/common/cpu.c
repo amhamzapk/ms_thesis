@@ -4,17 +4,12 @@
 #include <xen/init.h>
 #include <xen/sched.h>
 #include <xen/stop_machine.h>
-#include <xen/rcupdate.h>
 
 unsigned int __read_mostly nr_cpu_ids = NR_CPUS;
 #ifndef nr_cpumask_bits
 unsigned int __read_mostly nr_cpumask_bits
     = BITS_TO_LONGS(NR_CPUS) * BITS_PER_LONG;
 #endif
-
-const cpumask_t cpumask_all = {
-    .bits[0 ... (BITS_TO_LONGS(NR_CPUS) - 1)] = ~0UL
-};
 
 /*
  * cpu_bit_bitmap[] is a special, "compressed" data structure that
@@ -40,53 +35,43 @@ const unsigned long cpu_bit_bitmap[BITS_PER_LONG+1][BITS_TO_LONGS(NR_CPUS)] = {
 #endif
 };
 
-static DEFINE_RWLOCK(cpu_add_remove_lock);
+static DEFINE_SPINLOCK(cpu_add_remove_lock);
 
-bool get_cpu_maps(void)
+bool_t get_cpu_maps(void)
 {
-    return read_trylock(&cpu_add_remove_lock);
+    return spin_trylock_recursive(&cpu_add_remove_lock);
 }
 
 void put_cpu_maps(void)
 {
-    read_unlock(&cpu_add_remove_lock);
+    spin_unlock_recursive(&cpu_add_remove_lock);
 }
 
-void cpu_hotplug_begin(void)
+bool_t cpu_hotplug_begin(void)
 {
-    rcu_barrier();
-    write_lock(&cpu_add_remove_lock);
+    return get_cpu_maps();
 }
 
 void cpu_hotplug_done(void)
 {
-    write_unlock(&cpu_add_remove_lock);
+    put_cpu_maps();
 }
 
 static NOTIFIER_HEAD(cpu_chain);
 
 void __init register_cpu_notifier(struct notifier_block *nb)
 {
-    write_lock(&cpu_add_remove_lock);
+    if ( !spin_trylock(&cpu_add_remove_lock) )
+        BUG(); /* Should never fail as we are called only during boot. */
     notifier_chain_register(&cpu_chain, nb);
-    write_unlock(&cpu_add_remove_lock);
-}
-
-static int cpu_notifier_call_chain(unsigned int cpu, unsigned long action,
-                                   struct notifier_block **nb, bool nofail)
-{
-    void *hcpu = (void *)(long)cpu;
-    int notifier_rc = notifier_call_chain(&cpu_chain, action, hcpu, nb);
-    int ret = (notifier_rc == NOTIFY_DONE) ? 0 : notifier_to_errno(notifier_rc);
-
-    BUG_ON(ret && nofail);
-
-    return ret;
+    spin_unlock(&cpu_add_remove_lock);
 }
 
 static void _take_cpu_down(void *unused)
 {
-    cpu_notifier_call_chain(smp_processor_id(), CPU_DYING, NULL, true);
+    void *hcpu = (void *)(long)smp_processor_id();
+    int notifier_rc = notifier_call_chain(&cpu_chain, CPU_DYING, hcpu, NULL);
+    BUG_ON(notifier_rc != NOTIFY_DONE);
     __cpu_disable();
 }
 
@@ -98,69 +83,76 @@ static int take_cpu_down(void *arg)
 
 int cpu_down(unsigned int cpu)
 {
-    int err;
+    int err, notifier_rc;
+    void *hcpu = (void *)(long)cpu;
     struct notifier_block *nb = NULL;
 
-    cpu_hotplug_begin();
+    if ( !cpu_hotplug_begin() )
+        return -EBUSY;
 
-    err = -EINVAL;
-    if ( (cpu >= nr_cpu_ids) || (cpu == 0) )
-        goto out;
+    if ( (cpu >= nr_cpu_ids) || (cpu == 0) || !cpu_online(cpu) )
+    {
+        cpu_hotplug_done();
+        return -EINVAL;
+    }
 
-    err = -EEXIST;
-    if ( !cpu_online(cpu) )
-        goto out;
-
-    err = cpu_notifier_call_chain(cpu, CPU_DOWN_PREPARE, &nb, false);
-    if ( err )
+    notifier_rc = notifier_call_chain(&cpu_chain, CPU_DOWN_PREPARE, hcpu, &nb);
+    if ( notifier_rc != NOTIFY_DONE )
+    {
+        err = notifier_to_errno(notifier_rc);
         goto fail;
+    }
 
-    if ( system_state < SYS_STATE_active || system_state == SYS_STATE_resume )
+    if ( unlikely(system_state < SYS_STATE_active) )
         on_selected_cpus(cpumask_of(cpu), _take_cpu_down, NULL, true);
     else if ( (err = stop_machine_run(take_cpu_down, NULL, cpu)) < 0 )
         goto fail;
 
     __cpu_die(cpu);
-    err = cpu_online(cpu);
-    BUG_ON(err);
+    BUG_ON(cpu_online(cpu));
 
-    cpu_notifier_call_chain(cpu, CPU_DEAD, NULL, true);
+    notifier_rc = notifier_call_chain(&cpu_chain, CPU_DEAD, hcpu, NULL);
+    BUG_ON(notifier_rc != NOTIFY_DONE);
 
     send_global_virq(VIRQ_PCPU_STATE);
     cpu_hotplug_done();
     return 0;
 
  fail:
-    cpu_notifier_call_chain(cpu, CPU_DOWN_FAILED, &nb, true);
- out:
+    notifier_rc = notifier_call_chain(&cpu_chain, CPU_DOWN_FAILED, hcpu, &nb);
+    BUG_ON(notifier_rc != NOTIFY_DONE);
     cpu_hotplug_done();
     return err;
 }
 
 int cpu_up(unsigned int cpu)
 {
-    int err;
+    int notifier_rc, err = 0;
+    void *hcpu = (void *)(long)cpu;
     struct notifier_block *nb = NULL;
 
-    cpu_hotplug_begin();
+    if ( !cpu_hotplug_begin() )
+        return -EBUSY;
 
-    err = -EINVAL;
-    if ( (cpu >= nr_cpu_ids) || !cpu_present(cpu) )
-        goto out;
+    if ( (cpu >= nr_cpu_ids) || cpu_online(cpu) || !cpu_present(cpu) )
+    {
+        cpu_hotplug_done();
+        return -EINVAL;
+    }
 
-    err = -EEXIST;
-    if ( cpu_online(cpu) )
-        goto out;
-
-    err = cpu_notifier_call_chain(cpu, CPU_UP_PREPARE, &nb, false);
-    if ( err )
+    notifier_rc = notifier_call_chain(&cpu_chain, CPU_UP_PREPARE, hcpu, &nb);
+    if ( notifier_rc != NOTIFY_DONE )
+    {
+        err = notifier_to_errno(notifier_rc);
         goto fail;
+    }
 
     err = __cpu_up(cpu);
     if ( err < 0 )
         goto fail;
 
-    cpu_notifier_call_chain(cpu, CPU_ONLINE, NULL, true);
+    notifier_rc = notifier_call_chain(&cpu_chain, CPU_ONLINE, hcpu, NULL);
+    BUG_ON(notifier_rc != NOTIFY_DONE);
 
     send_global_virq(VIRQ_PCPU_STATE);
 
@@ -168,15 +160,18 @@ int cpu_up(unsigned int cpu)
     return 0;
 
  fail:
-    cpu_notifier_call_chain(cpu, CPU_UP_CANCELED, &nb, true);
- out:
+    notifier_rc = notifier_call_chain(&cpu_chain, CPU_UP_CANCELED, hcpu, &nb);
+    BUG_ON(notifier_rc != NOTIFY_DONE);
     cpu_hotplug_done();
     return err;
 }
 
 void notify_cpu_starting(unsigned int cpu)
 {
-    cpu_notifier_call_chain(cpu, CPU_STARTING, NULL, true);
+    void *hcpu = (void *)(long)cpu;
+    int notifier_rc = notifier_call_chain(
+        &cpu_chain, CPU_STARTING, hcpu, NULL);
+    BUG_ON(notifier_rc != NOTIFY_DONE);
 }
 
 static cpumask_t frozen_cpus;
@@ -216,23 +211,14 @@ void enable_nonboot_cpus(void)
 
     printk("Enabling non-boot CPUs  ...\n");
 
-    for_each_present_cpu ( cpu )
+    for_each_cpu ( cpu, &frozen_cpus )
     {
-        if ( park_offline_cpus ? cpu == smp_processor_id()
-                               : !cpumask_test_cpu(cpu, &frozen_cpus) )
-            continue;
         if ( (error = cpu_up(cpu)) )
         {
             printk("Error bringing CPU%d up: %d\n", cpu, error);
             BUG_ON(error == -EBUSY);
         }
-        else if ( !__cpumask_test_and_clear_cpu(cpu, &frozen_cpus) &&
-                  (error = cpu_down(cpu)) )
-            printk("Error re-offlining CPU%d: %d\n", cpu, error);
     }
-
-    for_each_cpu ( cpu, &frozen_cpus )
-        cpu_notifier_call_chain(cpu, CPU_RESUME_FAILED, NULL, true);
 
     cpumask_clear(&frozen_cpus);
 }

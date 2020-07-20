@@ -59,7 +59,7 @@ enum query_block {
 
 
 /* Given the qmp device name, get the image filename associated with it
-   QMP Syntax for querying block information:
+   QMP Syntax for querying block infomation:
      In: { "execute": "query-block" }
      Out: {"return": [{
             "device": 'str, "locked": 'bool', "removable": bool,

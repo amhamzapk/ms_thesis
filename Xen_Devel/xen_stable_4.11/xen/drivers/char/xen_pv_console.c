@@ -28,7 +28,6 @@
 #include <asm/fixmap.h>
 #include <asm/guest.h>
 
-#include <public/hvm/params.h>
 #include <public/io/console.h>
 
 static struct xencons_interface *cons_ring;
@@ -130,13 +129,13 @@ size_t pv_console_rx(struct cpu_user_regs *regs)
     return recv;
 }
 
-static size_t pv_ring_puts(const char *buf, size_t nr)
+static size_t pv_ring_puts(const char *buf)
 {
     XENCONS_RING_IDX cons, prod;
     size_t sent = 0, avail;
     bool put_r = false;
 
-    while ( sent < nr || put_r )
+    while ( buf[sent] != '\0' || put_r )
     {
         cons = ACCESS_ONCE(cons_ring->out_cons);
         prod = cons_ring->out_prod;
@@ -157,7 +156,7 @@ static size_t pv_ring_puts(const char *buf, size_t nr)
             continue;
         }
 
-        while ( avail && (sent < nr || put_r) )
+        while ( avail && (buf[sent] != '\0' || put_r) )
         {
             if ( put_r )
             {
@@ -186,7 +185,7 @@ static size_t pv_ring_puts(const char *buf, size_t nr)
     return sent;
 }
 
-void pv_console_puts(const char *buf, size_t nr)
+void pv_console_puts(const char *buf)
 {
     unsigned long flags;
 
@@ -194,7 +193,7 @@ void pv_console_puts(const char *buf, size_t nr)
         return;
 
     spin_lock_irqsave(&tx_lock, flags);
-    pv_ring_puts(buf, nr);
+    pv_ring_puts(buf);
     spin_unlock_irqrestore(&tx_lock, flags);
 }
 

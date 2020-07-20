@@ -138,8 +138,7 @@ static void pt_pirq_softirq_reset(struct hvm_pirq_dpci *pirq_dpci)
 
 bool pt_irq_need_timer(uint32_t flags)
 {
-    return !(flags & (HVM_IRQ_DPCI_GUEST_MSI | HVM_IRQ_DPCI_TRANSLATE |
-                      HVM_IRQ_DPCI_NO_EOI));
+    return !(flags & (HVM_IRQ_DPCI_GUEST_MSI | HVM_IRQ_DPCI_TRANSLATE));
 }
 
 static int pt_irq_guest_eoi(struct domain *d, struct hvm_pirq_dpci *pirq_dpci,
@@ -435,12 +434,12 @@ int pt_irq_create_bind(
             if ( vcpu )
                 pirq_dpci->gmsi.posted = true;
         }
-        if ( vcpu && is_iommu_enabled(d) )
-            hvm_migrate_pirq(pirq_dpci, vcpu);
+        if ( dest_vcpu_id >= 0 )
+            hvm_migrate_pirqs(d->vcpu[dest_vcpu_id]);
 
         /* Use interrupt posting if it is supported. */
         if ( iommu_intpost )
-            pi_update_irte(vcpu ? &vcpu->arch.hvm.vmx.pi_desc : NULL,
+            pi_update_irte(vcpu ? &vcpu->arch.hvm_vmx.pi_desc : NULL,
                            info, pirq_dpci->gmsi.gvec);
 
         if ( pt_irq_bind->u.msi.gflags & XEN_DOMCTL_VMSI_X86_UNMASKED )
@@ -559,12 +558,6 @@ int pt_irq_create_bind(
                      */
                     ASSERT(!mask);
                     share = trigger_mode;
-                    if ( trigger_mode == VIOAPIC_EDGE_TRIG )
-                        /*
-                         * Edge IO-APIC interrupt, no EOI or unmask to perform
-                         * and hence no timer needed.
-                         */
-                        pirq_dpci->flags |= HVM_IRQ_DPCI_NO_EOI;
                 }
             }
 
@@ -824,7 +817,7 @@ int hvm_do_IRQ_dpci(struct domain *d, struct pirq *pirq)
 
     ASSERT(is_hvm_domain(d));
 
-    if ( !is_iommu_enabled(d) || (!is_hardware_domain(d) && !dpci) ||
+    if ( !iommu_enabled || (!is_hardware_domain(d) && !dpci) ||
          !pirq_dpci || !(pirq_dpci->flags & HVM_IRQ_DPCI_MAPPED) )
         return 0;
 
@@ -876,8 +869,7 @@ static int _hvm_dpci_msi_eoi(struct domain *d,
 
 void hvm_dpci_msi_eoi(struct domain *d, int vector)
 {
-    if ( !is_iommu_enabled(d) ||
-         (!hvm_domain_irq(d)->dpci && !is_hardware_domain(d)) )
+    if ( !iommu_enabled || !hvm_domain_irq(d)->dpci )
        return;
 
     spin_lock(&d->event_lock);
@@ -904,13 +896,17 @@ static void hvm_dirq_assist(struct domain *d, struct hvm_pirq_dpci *pirq_dpci)
             send_guest_pirq(d, pirq);
 
             if ( pirq_dpci->flags & HVM_IRQ_DPCI_GUEST_MSI )
-                goto out;
+            {
+                spin_unlock(&d->event_lock);
+                return;
+            }
         }
 
         if ( pirq_dpci->flags & HVM_IRQ_DPCI_GUEST_MSI )
         {
             vmsi_deliver_pirq(d, pirq_dpci);
-            goto out;
+            spin_unlock(&d->event_lock);
+            return;
         }
 
         list_for_each_entry ( digl, &pirq_dpci->digl_list, list )
@@ -923,8 +919,6 @@ static void hvm_dirq_assist(struct domain *d, struct hvm_pirq_dpci *pirq_dpci)
         if ( pirq_dpci->flags & HVM_IRQ_DPCI_IDENTITY_GSI )
         {
             hvm_gsi_assert(d, pirq->pirq);
-            if ( pirq_dpci->flags & HVM_IRQ_DPCI_NO_EOI )
-                goto out;
             pirq_dpci->pending++;
         }
 
@@ -932,7 +926,8 @@ static void hvm_dirq_assist(struct domain *d, struct hvm_pirq_dpci *pirq_dpci)
         {
             /* for translated MSI to INTx interrupt, eoi as early as possible */
             __msi_pirq_eoi(pirq_dpci);
-            goto out;
+            spin_unlock(&d->event_lock);
+            return;
         }
 
         /*
@@ -945,8 +940,6 @@ static void hvm_dirq_assist(struct domain *d, struct hvm_pirq_dpci *pirq_dpci)
         ASSERT(pt_irq_need_timer(pirq_dpci->flags));
         set_timer(&pirq_dpci->timer, NOW() + PT_IRQ_TIME_OUT);
     }
-
- out:
     spin_unlock(&d->event_lock);
 }
 
@@ -1007,7 +1000,7 @@ void hvm_dpci_eoi(struct domain *d, unsigned int guest_gsi,
     const struct hvm_irq_dpci *hvm_irq_dpci;
     const struct hvm_girq_dpci_mapping *girq;
 
-    if ( !is_iommu_enabled(d) )
+    if ( !iommu_enabled )
         return;
 
     if ( is_hardware_domain(d) )

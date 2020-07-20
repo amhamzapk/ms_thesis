@@ -2,7 +2,7 @@
  * kernel.c
  */
 
-EMIT_FILE;
+asm(".file \"" __FILE__ "\"");
 
 #include <xen/init.h>
 #include <xen/lib.h>
@@ -36,6 +36,11 @@ CHECK_TYPE(capabilities_info);
 #define xen_feature_info_t compat_feature_info_t
 
 CHECK_TYPE(domain_handle);
+
+#ifdef COMPAT_VM_ASSIST_VALID
+#undef VM_ASSIST_VALID
+#define VM_ASSIST_VALID COMPAT_VM_ASSIST_VALID
+#endif
 
 #define DO(fn) int compat_##fn
 #define COMPAT

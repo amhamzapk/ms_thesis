@@ -6,17 +6,18 @@
 
 static inline void load_LDT(struct vcpu *v)
 {
-    seg_desc_t *desc;
+    struct desc_struct *desc;
     unsigned long ents;
 
-    if ( (ents = v->arch.pv.ldt_ents) == 0 )
+    if ( (ents = v->arch.pv_vcpu.ldt_ents) == 0 )
         lldt(0);
     else
     {
-        desc = (!is_pv_32bit_vcpu(v) ? this_cpu(gdt) : this_cpu(compat_gdt))
+        desc = (!is_pv_32bit_vcpu(v)
+                ? this_cpu(gdt_table) : this_cpu(compat_gdt_table))
                + LDT_ENTRY - FIRST_RESERVED_GDT_ENTRY;
         _set_tssldt_desc(desc, LDT_VIRT_START(v), ents*8-1, SYS_DESC_ldt);
-        lldt(LDT_SELECTOR);
+        lldt(LDT_ENTRY << 3);
     }
 }
 

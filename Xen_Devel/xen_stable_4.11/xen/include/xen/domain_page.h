@@ -72,9 +72,4 @@ static inline void unmap_domain_page_global(const void *va) {};
 
 #endif /* !CONFIG_DOMAIN_PAGE */
 
-#define UNMAP_DOMAIN_PAGE(p) do {   \
-    unmap_domain_page(p);           \
-    (p) = NULL;                     \
-} while ( false )
-
 #endif /* __XEN_DOMAIN_PAGE_H__ */

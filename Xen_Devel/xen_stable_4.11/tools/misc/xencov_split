@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 import sys, os, os.path as path, struct, errno
 from optparse import OptionParser

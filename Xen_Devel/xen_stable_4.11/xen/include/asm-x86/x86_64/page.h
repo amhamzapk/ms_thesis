@@ -34,14 +34,6 @@
 
 #ifndef __ASSEMBLY__
 
-static inline unsigned long canonicalise_addr(unsigned long addr)
-{
-    if ( addr & VADDR_TOP_BIT )
-        return addr | CANONICAL_MASK;
-    else
-        return addr & ~CANONICAL_MASK;
-}
-
 #include <asm/types.h>
 
 #include <xen/pdx.h>
@@ -171,13 +163,19 @@ static inline intpte_t put_pte_flags(unsigned int x)
 #define PAGE_HYPERVISOR_RW      (__PAGE_HYPERVISOR_RW      | _PAGE_GLOBAL)
 #define PAGE_HYPERVISOR_RX      (__PAGE_HYPERVISOR_RX      | _PAGE_GLOBAL)
 #define PAGE_HYPERVISOR_RWX     (__PAGE_HYPERVISOR         | _PAGE_GLOBAL)
-#define PAGE_HYPERVISOR_SHSTK   (__PAGE_HYPERVISOR_SHSTK   | _PAGE_GLOBAL)
 
-#define PAGE_HYPERVISOR         PAGE_HYPERVISOR_RW
-#define PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR_UCMINUS | \
-                                 _PAGE_GLOBAL | _PAGE_NX)
-#define PAGE_HYPERVISOR_UC      (__PAGE_HYPERVISOR_UC | \
-                                 _PAGE_GLOBAL | _PAGE_NX)
+#ifdef __ASSEMBLY__
+/* Dependency on NX being available can't be expressed. */
+# define PAGE_HYPERVISOR         PAGE_HYPERVISOR_RWX
+# define PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR_UCMINUS | _PAGE_GLOBAL)
+# define PAGE_HYPERVISOR_UC      (__PAGE_HYPERVISOR_UC      | _PAGE_GLOBAL)
+#else
+# define PAGE_HYPERVISOR         PAGE_HYPERVISOR_RW
+# define PAGE_HYPERVISOR_UCMINUS (__PAGE_HYPERVISOR_UCMINUS | \
+                                  _PAGE_GLOBAL | _PAGE_NX)
+# define PAGE_HYPERVISOR_UC      (__PAGE_HYPERVISOR_UC | \
+                                  _PAGE_GLOBAL | _PAGE_NX)
+#endif
 
 #endif /* __X86_64_PAGE_H__ */
 

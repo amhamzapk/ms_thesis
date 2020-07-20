@@ -1,4 +1,6 @@
+open Arg
 open Printf
+open Xenlight
 
 let bool_as_char b c = if b then c else '-'
 

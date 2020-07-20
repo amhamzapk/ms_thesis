@@ -66,7 +66,6 @@ void xlu__cfg_yyset_column(int  column_no, yyscan_t yyscanner);
 ,                       { GOT(','); }
 \[                      { GOT('['); }
 \]                      { GOT(']'); }
-\+\=                    { GOT(OP_ADD); }
 \=                      { GOT('='); }
 \;                      { GOT(';'); }
 

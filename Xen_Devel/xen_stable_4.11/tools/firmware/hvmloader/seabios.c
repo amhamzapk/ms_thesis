@@ -131,8 +131,7 @@ static void seabios_setup_e820(void)
 }
 
 static void seabios_load(const struct bios_config *bios,
-                         void *bios_addr, uint32_t bios_length,
-                         void *unused_addr)
+                         void *bios_addr, uint32_t bios_length)
 {
     unsigned int bios_dest = 0x100000 - bios_length;
 

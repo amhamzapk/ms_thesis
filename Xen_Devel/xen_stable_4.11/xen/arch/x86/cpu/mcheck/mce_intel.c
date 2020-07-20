@@ -4,7 +4,6 @@
 #include <xen/event.h>
 #include <xen/kernel.h>
 #include <xen/delay.h>
-#include <xen/param.h>
 #include <xen/smp.h>
 #include <xen/mm.h>
 #include <xen/cpu.h>
@@ -52,6 +51,7 @@ bool __read_mostly lmce_support;
 #define INTEL_SRAR_DATA_LOAD	0x134
 #define INTEL_SRAR_INSTR_FETCH	0x150
 
+#ifdef CONFIG_X86_MCE_THERMAL
 #define MCE_RING                0x1
 static DEFINE_PER_CPU(int, last_state);
 
@@ -174,7 +174,9 @@ static void intel_init_thermal(struct cpuinfo_x86 *c)
     if ( opt_cpu_info )
         printk(KERN_INFO "CPU%u: Thermal monitoring enabled (%s)\n",
                cpu, tm2 ? "TM2" : "TM1");
+    return;
 }
+#endif /* CONFIG_X86_MCE_THERMAL */
 
 /* Intel MCE handler */
 static inline void intel_get_extended_msr(struct mcinfo_extended *ext, u32 msr)
@@ -490,7 +492,6 @@ static int do_cmci_discover(int i)
     unsigned msr = MSR_IA32_MCx_CTL2(i);
     u64 val;
     unsigned int threshold, max_threshold;
-    unsigned int cpu = smp_processor_id();
     static unsigned int cmci_threshold = 2;
     integer_param("cmci-threshold", cmci_threshold);
 
@@ -498,7 +499,7 @@ static int do_cmci_discover(int i)
     /* Some other CPU already owns this bank. */
     if ( val & CMCI_EN )
     {
-        mcabanks_clear(i, per_cpu(mce_banks_owned, cpu));
+        mcabanks_clear(i, __get_cpu_var(mce_banks_owned));
         goto out;
     }
 
@@ -511,7 +512,7 @@ static int do_cmci_discover(int i)
     if ( !(val & CMCI_EN) )
     {
         /* This bank does not support CMCI. Polling timer has to handle it. */
-        mcabanks_set(i, per_cpu(no_cmci_banks, cpu));
+        mcabanks_set(i, __get_cpu_var(no_cmci_banks));
         wrmsrl(msr, val & ~CMCI_THRESHOLD_MASK);
         return 0;
     }
@@ -521,29 +522,29 @@ static int do_cmci_discover(int i)
     {
         mce_printk(MCE_QUIET,
                    "CMCI: threshold %#x too large for CPU%u bank %u, using %#x\n",
-                   threshold, cpu, i, max_threshold);
+                   threshold, smp_processor_id(), i, max_threshold);
         threshold = max_threshold;
     }
     wrmsrl(msr, (val & ~CMCI_THRESHOLD_MASK) | CMCI_EN | threshold);
-    mcabanks_set(i, per_cpu(mce_banks_owned, cpu));
+    mcabanks_set(i, __get_cpu_var(mce_banks_owned));
 out:
-    mcabanks_clear(i, per_cpu(no_cmci_banks, cpu));
+    mcabanks_clear(i, __get_cpu_var(no_cmci_banks));
     return 1;
 }
 
 static void cmci_discover(void)
 {
     unsigned long flags;
-    unsigned int i, cpu = smp_processor_id();
+    int i;
     mctelem_cookie_t mctc;
     struct mca_summary bs;
 
-    mce_printk(MCE_VERBOSE, "CMCI: find owner on CPU%u\n", cpu);
+    mce_printk(MCE_VERBOSE, "CMCI: find owner on CPU%d\n", smp_processor_id());
 
     spin_lock_irqsave(&cmci_discover_lock, flags);
 
-    for ( i = 0; i < per_cpu(nr_mce_banks, cpu); i++ )
-        if ( !mcabanks_test(i, per_cpu(mce_banks_owned, cpu)) )
+    for ( i = 0; i < nr_mce_banks; i++ )
+        if ( !mcabanks_test(i, __get_cpu_var(mce_banks_owned)) )
             do_cmci_discover(i);
 
     spin_unlock_irqrestore(&cmci_discover_lock, flags);
@@ -556,7 +557,7 @@ static void cmci_discover(void)
      */
 
     mctc = mcheck_mca_logout(
-        MCA_CMCI_HANDLER, per_cpu(mce_banks_owned, cpu), &bs, NULL);
+        MCA_CMCI_HANDLER, __get_cpu_var(mce_banks_owned), &bs, NULL);
 
     if ( bs.errcnt && mctc != NULL )
     {
@@ -575,9 +576,9 @@ static void cmci_discover(void)
         mctelem_dismiss(mctc);
 
     mce_printk(MCE_VERBOSE, "CMCI: CPU%d owner_map[%lx], no_cmci_map[%lx]\n",
-               cpu,
-               per_cpu(mce_banks_owned, cpu)->bank_map[0],
-               per_cpu(no_cmci_banks, cpu)->bank_map[0]);
+               smp_processor_id(),
+               *((unsigned long *)__get_cpu_var(mce_banks_owned)->bank_map),
+               *((unsigned long *)__get_cpu_var(no_cmci_banks)->bank_map));
 }
 
 /*
@@ -612,24 +613,24 @@ static void cpu_mcheck_distribute_cmci(void)
 
 static void clear_cmci(void)
 {
-    unsigned int i, cpu = smp_processor_id();
+    int i;
 
     if ( !cmci_support || !opt_mce )
         return;
 
-    mce_printk(MCE_VERBOSE, "CMCI: clear_cmci support on CPU%u\n", cpu);
+    mce_printk(MCE_VERBOSE, "CMCI: clear_cmci support on CPU%d\n",
+               smp_processor_id());
 
-    for ( i = 0; i < per_cpu(nr_mce_banks, cpu); i++ )
+    for ( i = 0; i < nr_mce_banks; i++ )
     {
         unsigned msr = MSR_IA32_MCx_CTL2(i);
         u64 val;
-
-        if ( !mcabanks_test(i, per_cpu(mce_banks_owned, cpu)) )
+        if ( !mcabanks_test(i, __get_cpu_var(mce_banks_owned)) )
             continue;
         rdmsrl(msr, val);
         if ( val & (CMCI_EN|CMCI_THRESHOLD_MASK) )
             wrmsrl(msr, val & ~(CMCI_EN|CMCI_THRESHOLD_MASK));
-        mcabanks_clear(i, per_cpu(mce_banks_owned, cpu));
+        mcabanks_clear(i, __get_cpu_var(mce_banks_owned));
     }
 }
 
@@ -647,7 +648,7 @@ static void cmci_interrupt(struct cpu_user_regs *regs)
     ack_APIC_irq();
 
     mctc = mcheck_mca_logout(
-        MCA_CMCI_HANDLER, this_cpu(mce_banks_owned), &bs, NULL);
+        MCA_CMCI_HANDLER, __get_cpu_var(mce_banks_owned), &bs, NULL);
 
     if ( bs.errcnt && mctc != NULL )
     {
@@ -825,7 +826,7 @@ static void intel_init_mce(void)
     intel_mce_post_reset();
 
     /* clear all banks */
-    for ( i = firstbank; i < this_cpu(nr_mce_banks); i++ )
+    for ( i = firstbank; i < nr_mce_banks; i++ )
     {
         /*
          * Some banks are shared across cores, use MCi_CTRL to judge whether
@@ -854,44 +855,6 @@ static void intel_init_mce(void)
     mce_uhandler_num = ARRAY_SIZE(intel_mce_uhandlers);
 }
 
-static void intel_init_ppin(const struct cpuinfo_x86 *c)
-{
-    /*
-     * Even if testing the presence of the MSR would be enough, we don't
-     * want to risk the situation where other models reuse this MSR for
-     * other purposes.
-     */
-    switch ( c->x86_model )
-    {
-        uint64_t val;
-
-    case 0x3e: /* IvyBridge X */
-    case 0x3f: /* Haswell X */
-    case 0x4f: /* Broadwell X */
-    case 0x55: /* Skylake X */
-    case 0x56: /* Broadwell Xeon D */
-    case 0x57: /* Knights Landing */
-    case 0x6a: /* Icelake X */
-    case 0x85: /* Knights Mill */
-
-        if ( (c != &boot_cpu_data && !ppin_msr) ||
-             rdmsr_safe(MSR_PPIN_CTL, val) )
-            return;
-
-        /* If PPIN is disabled, but not locked, try to enable. */
-        if ( !(val & (PPIN_ENABLE | PPIN_LOCKOUT)) )
-        {
-            wrmsr_safe(MSR_PPIN_CTL, val | PPIN_ENABLE);
-            rdmsr_safe(MSR_PPIN_CTL, val);
-        }
-
-        if ( !(val & PPIN_ENABLE) )
-            ppin_msr = 0;
-        else if ( c == &boot_cpu_data )
-            ppin_msr = MSR_PPIN;
-    }
-}
-
 static void cpu_mcabank_free(unsigned int cpu)
 {
     struct mca_banks *cmci = per_cpu(no_cmci_banks, cpu);
@@ -903,9 +866,8 @@ static void cpu_mcabank_free(unsigned int cpu)
 
 static int cpu_mcabank_alloc(unsigned int cpu)
 {
-    unsigned int nr = per_cpu(nr_mce_banks, cpu);
-    struct mca_banks *cmci = mcabanks_alloc(nr);
-    struct mca_banks *owned = mcabanks_alloc(nr);
+    struct mca_banks *cmci = mcabanks_alloc();
+    struct mca_banks *owned = mcabanks_alloc();
 
     if ( !cmci || !owned )
         goto out;
@@ -962,13 +924,6 @@ enum mcheck_type intel_mcheck_init(struct cpuinfo_x86 *c, bool bsp)
         register_cpu_notifier(&cpu_nfb);
         mcheck_intel_therm_init();
     }
-    else
-    {
-        unsigned int cpu = smp_processor_id();
-
-        per_cpu(no_cmci_banks, cpu)->num = per_cpu(nr_mce_banks, cpu);
-        per_cpu(mce_banks_owned, cpu)->num = per_cpu(nr_mce_banks, cpu);
-    }
 
     intel_init_mca(c);
 
@@ -977,10 +932,9 @@ enum mcheck_type intel_mcheck_init(struct cpuinfo_x86 *c, bool bsp)
     intel_init_mce();
 
     intel_init_cmci(c);
-
+#ifdef CONFIG_X86_MCE_THERMAL
     intel_init_thermal(c);
-
-    intel_init_ppin(c);
+#endif
 
     return mcheck_intel;
 }

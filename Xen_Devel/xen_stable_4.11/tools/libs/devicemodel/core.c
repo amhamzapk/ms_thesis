@@ -67,10 +67,9 @@ xendevicemodel_handle *xendevicemodel_open(xentoollog_logger *logger,
     return dmod;
 
 err:
-    osdep_xendevicemodel_close(dmod);
+    xtl_logger_destroy(dmod->logger_tofree);
     xentoolcore__deregister_active_handle(&dmod->tc_ah);
     xencall_close(dmod->xcall);
-    xtl_logger_destroy(dmod->logger_tofree);
     free(dmod);
     return NULL;
 }
@@ -537,7 +536,7 @@ int xendevicemodel_set_mem_type(
 
 int xendevicemodel_inject_event(
     xendevicemodel_handle *dmod, domid_t domid, int vcpu, uint8_t vector,
-    uint8_t type, uint32_t error_code, uint8_t insn_len, uint64_t extra)
+    uint8_t type, uint32_t error_code, uint8_t insn_len, uint64_t cr2)
 {
     struct xen_dm_op op;
     struct xen_dm_op_inject_event *data;
@@ -552,7 +551,7 @@ int xendevicemodel_inject_event(
     data->type = type;
     data->error_code = error_code;
     data->insn_len = insn_len;
-    data->cr2 = extra;
+    data->cr2 = cr2;
 
     return xendevicemodel_op(dmod, domid, 1, &op, sizeof(op));
 }

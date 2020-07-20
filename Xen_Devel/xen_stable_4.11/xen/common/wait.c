@@ -20,7 +20,6 @@
  */
 
 #include <xen/sched.h>
-#include <xen/softirq.h>
 #include <xen/wait.h>
 #include <xen/errno.h>
 
@@ -34,6 +33,8 @@ struct waitqueue_vcpu {
      */
     void *esp;
     char *stack;
+    cpumask_t saved_affinity;
+    unsigned int wakeup_cpu;
 #endif
 };
 
@@ -129,13 +130,12 @@ static void __prepare_to_wait(struct waitqueue_vcpu *wqv)
     ASSERT(wqv->esp == 0);
 
     /* Save current VCPU affinity; force wakeup on *this* CPU only. */
-    if ( vcpu_temporary_affinity(curr, smp_processor_id(), VCPU_AFFINITY_WAIT) )
+    wqv->wakeup_cpu = smp_processor_id();
+    cpumask_copy(&wqv->saved_affinity, curr->cpu_hard_affinity);
+    if ( vcpu_set_hard_affinity(curr, cpumask_of(wqv->wakeup_cpu)) )
     {
         gdprintk(XENLOG_ERR, "Unable to set vcpu affinity\n");
-        domain_crash(curr->domain);
-
-        for ( ; ; )
-            do_softirq();
+        domain_crash_synchronous();
     }
 
     /* Hand-rolled setjmp(). */
@@ -166,10 +166,7 @@ static void __prepare_to_wait(struct waitqueue_vcpu *wqv)
     if ( unlikely(wqv->esp == 0) )
     {
         gdprintk(XENLOG_ERR, "Stack too large in %s\n", __func__);
-        domain_crash(curr->domain);
-
-        for ( ; ; )
-            do_softirq();
+        domain_crash_synchronous();
     }
 
     cpu_info->guest_cpu_user_regs.entry_vector = entry_vector;
@@ -178,29 +175,30 @@ static void __prepare_to_wait(struct waitqueue_vcpu *wqv)
 static void __finish_wait(struct waitqueue_vcpu *wqv)
 {
     wqv->esp = NULL;
-    vcpu_temporary_affinity(current, NR_CPUS, VCPU_AFFINITY_WAIT);
+    (void)vcpu_set_hard_affinity(current, &wqv->saved_affinity);
 }
 
 void check_wakeup_from_wait(void)
 {
-    struct vcpu *curr = current;
-    struct waitqueue_vcpu *wqv = curr->waitqueue_vcpu;
+    struct waitqueue_vcpu *wqv = current->waitqueue_vcpu;
 
     ASSERT(list_empty(&wqv->list));
 
     if ( likely(wqv->esp == NULL) )
         return;
 
-    /* Check if we are still pinned. */
-    if ( unlikely(!(curr->affinity_broken & VCPU_AFFINITY_WAIT)) )
+    /* Check if we woke up on the wrong CPU. */
+    if ( unlikely(smp_processor_id() != wqv->wakeup_cpu) )
     {
-        gdprintk(XENLOG_ERR, "vcpu affinity lost\n");
-        domain_crash(curr->domain);
-
-        /* Re-initiate scheduler and don't longjmp(). */
-        raise_softirq(SCHEDULE_SOFTIRQ);
-        for ( ; ; )
-            do_softirq();
+        /* Re-set VCPU affinity and re-enter the scheduler. */
+        struct vcpu *curr = current;
+        cpumask_copy(&wqv->saved_affinity, curr->cpu_hard_affinity);
+        if ( vcpu_set_hard_affinity(curr, cpumask_of(wqv->wakeup_cpu)) )
+        {
+            gdprintk(XENLOG_ERR, "Unable to set vcpu affinity\n");
+            domain_crash_synchronous();
+        }
+        wait(); /* takes us back into the scheduler */
     }
 
     /*

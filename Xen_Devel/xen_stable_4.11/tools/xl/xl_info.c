@@ -210,14 +210,9 @@ static void output_physinfo(void)
          info.hw_cap[4], info.hw_cap[5], info.hw_cap[6], info.hw_cap[7]
         );
 
-    maybe_printf("virt_caps              :%s%s%s%s%s%s%s\n",
-         info.cap_pv ? " pv" : "",
+    maybe_printf("virt_caps              :%s%s\n",
          info.cap_hvm ? " hvm" : "",
-         info.cap_hvm && info.cap_hvm_directio ? " hvm_directio" : "",
-         info.cap_pv && info.cap_hvm_directio ? " pv_directio" : "",
-         info.cap_hap ? " hap" : "",
-         info.cap_shadow ? " shadow" : "",
-         info.cap_iommu_hap_pt_share ? " iommu_hap_pt_share" : ""
+         info.cap_hvm_directio ? " hvm_directio" : ""
         );
 
     vinfo = libxl_get_version_info(ctx);
@@ -464,8 +459,7 @@ static void list_domains_details(const libxl_dominfo *info, int nb_domain)
 
     for (i = 0; i < nb_domain; i++) {
         libxl_domain_config_init(&d_config);
-        rc = libxl_retrieve_domain_configuration(ctx, info[i].domid,
-                                                 &d_config, NULL);
+        rc = libxl_retrieve_domain_configuration(ctx, info[i].domid, &d_config);
         if (rc)
             continue;
         if (default_output_format == OUTPUT_FORMAT_JSON)

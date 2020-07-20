@@ -98,7 +98,7 @@ int physdev_map_pirq(domid_t domid, int type, int *index, int *pirq_p,
     {
         /*
          * Only makes sense for vector-based callback, else HVM-IRQ logic
-         * calls back into itself and deadlocks on hvm.irq_lock.
+         * calls back into itself and deadlocks on hvm_domain.irq_lock.
          */
         if ( !is_hvm_pv_evtchn_domain(d) )
             return -EINVAL;
@@ -412,7 +412,7 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
         if ( set_iopl.iopl > 3 )
             break;
         ret = 0;
-        curr->arch.pv.iopl = MASK_INSR(set_iopl.iopl, X86_EFLAGS_IOPL);
+        curr->arch.pv_vcpu.iopl = MASK_INSR(set_iopl.iopl, X86_EFLAGS_IOPL);
         break;
     }
 
@@ -429,11 +429,12 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
             break;
         ret = 0;
 #ifndef COMPAT
-        curr->arch.pv.iobmp = set_iobitmap.bitmap;
+        curr->arch.pv_vcpu.iobmp = set_iobitmap.bitmap;
 #else
-        guest_from_compat_handle(curr->arch.pv.iobmp, set_iobitmap.bitmap);
+        guest_from_compat_handle(curr->arch.pv_vcpu.iobmp,
+                                 set_iobitmap.bitmap);
 #endif
-        curr->arch.pv.iobmp_limit = set_iobitmap.nr_ports;
+        curr->arch.pv_vcpu.iobmp_limit = set_iobitmap.nr_ports;
         break;
     }
 
@@ -556,7 +557,7 @@ ret_t do_physdev_op(int cmd, XEN_GUEST_HANDLE_PARAM(void) arg)
 
         ret = pci_mmcfg_reserved(info.address, info.segment,
                                  info.start_bus, info.end_bus, info.flags);
-        if ( !ret && has_vpci(currd) && (info.flags & XEN_PCI_MMCFG_RESERVED) )
+        if ( !ret && has_vpci(currd) )
         {
             /*
              * For HVM (PVH) domains try to add the newly found MMCFG to the

@@ -186,7 +186,7 @@ static PyObject *xspy_ls(XsHandle *self, PyObject *args)
     Py_END_ALLOW_THREADS
 
     if (xsval) {
-        size_t i;
+        int i;
         PyObject *val = PyList_New(xsval_n);
         for (i = 0; i < xsval_n; i++)
 #if PY_MAJOR_VERSION >= 3
@@ -276,7 +276,7 @@ static PyObject *xspy_get_permissions(XsHandle *self, PyObject *args)
     struct xs_handle *xh = xshandle(self);
     struct xs_permissions *perms;
     unsigned int perms_n = 0;
-    size_t i;
+    int i;
 
     xs_transaction_t th;
     char *thstr;
@@ -531,7 +531,6 @@ again:
     free(xsval);
 
     if (!val && errno == EAGAIN) {
-        PyErr_Clear();
         goto again;
     }
 
@@ -1079,7 +1078,7 @@ PyMODINIT_FUNC initxs(void)
 
 /*
  * Local variables:
- *  mode: C
+ *  c-indent-level: 4
  *  c-basic-offset: 4
  * End:
  */

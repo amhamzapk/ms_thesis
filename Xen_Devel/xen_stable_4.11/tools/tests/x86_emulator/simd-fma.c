@@ -1,17 +1,18 @@
-#if !defined(__XOP__) && !defined(__AVX512F__)
 #include "simd.h"
+
+#ifndef __XOP__
 ENTRY(fma_test);
 #endif
 
-#if VEC_SIZE < 16 && !defined(to_bool)
+#if VEC_SIZE < 16
 # define to_bool(cmp) (!~(cmp)[0])
-#elif VEC_SIZE == 16 && !defined(__AVX512VL__)
+#elif VEC_SIZE == 16
 # if FLOAT_SIZE == 4
 #  define to_bool(cmp) __builtin_ia32_vtestcps(cmp, (vec_t){} == 0)
 # elif FLOAT_SIZE == 8
 #  define to_bool(cmp) __builtin_ia32_vtestcpd(cmp, (vec_t){} == 0)
 # endif
-#elif VEC_SIZE == 32 && !defined(__AVX512VL__)
+#elif VEC_SIZE == 32
 # if FLOAT_SIZE == 4
 #  define to_bool(cmp) __builtin_ia32_vtestcps256(cmp, (vec_t){} == 0)
 # elif FLOAT_SIZE == 8
@@ -19,17 +20,7 @@ ENTRY(fma_test);
 # endif
 #endif
 
-#ifndef eq
-# define eq(x, y) to_bool((x) == (y))
-#endif
-
-#if defined(__AVX512F__) && VEC_SIZE > FLOAT_SIZE
-# if FLOAT_SIZE == 4
-#  define fmaddsub(x, y, z) BR(vfmaddsubps, _mask, x, y, z, ~0)
-# elif FLOAT_SIZE == 8
-#  define fmaddsub(x, y, z) BR(vfmaddsubpd, _mask, x, y, z, ~0)
-# endif
-#elif VEC_SIZE == 16
+#if VEC_SIZE == 16
 # if FLOAT_SIZE == 4
 #  define addsub(x, y) __builtin_ia32_addsubps(x, y)
 #  if defined(__FMA4__) || defined(__FMA__)
@@ -55,10 +46,6 @@ ENTRY(fma_test);
 # endif
 #endif
 
-#if defined(fmaddsub) && !defined(addsub)
-# define addsub(x, y) fmaddsub(x, broadcast(1), y)
-#endif
-
 int fma_test(void)
 {
     unsigned int i;
@@ -75,38 +62,38 @@ int fma_test(void)
     y = (src - one) * inv;
     touch(src);
     z = inv * src + inv;
-    if ( !eq(x, z) ) return __LINE__;
+    if ( !to_bool(x == z) ) return __LINE__;
 
     touch(src);
     z = -inv * src - inv;
-    if ( !eq(-x, z) ) return __LINE__;
+    if ( !to_bool(-x == z) ) return __LINE__;
 
     touch(src);
     z = inv * src - inv;
-    if ( !eq(y, z) ) return __LINE__;
+    if ( !to_bool(y == z) ) return __LINE__;
 
     touch(src);
     z = -inv * src + inv;
-    if ( !eq(-y, z) ) return __LINE__;
+    if ( !to_bool(-y == z) ) return __LINE__;
     touch(src);
 
     x = src + inv;
     y = src - inv;
     touch(inv);
     z = src * one + inv;
-    if ( !eq(x, z) ) return __LINE__;
+    if ( !to_bool(x == z) ) return __LINE__;
 
     touch(inv);
     z = -src * one - inv;
-    if ( !eq(-x, z) ) return __LINE__;
+    if ( !to_bool(-x == z) ) return __LINE__;
 
     touch(inv);
     z = src * one - inv;
-    if ( !eq(y, z) ) return __LINE__;
+    if ( !to_bool(y == z) ) return __LINE__;
 
     touch(inv);
     z = -src * one + inv;
-    if ( !eq(-y, z) ) return __LINE__;
+    if ( !to_bool(-y == z) ) return __LINE__;
     touch(inv);
 
 #if defined(addsub) && defined(fmaddsub)
@@ -114,21 +101,21 @@ int fma_test(void)
     y = addsub(src * inv, -one);
     touch(one);
     z = fmaddsub(src, inv, one);
-    if ( !eq(x, z) ) return __LINE__;
+    if ( !to_bool(x == z) ) return __LINE__;
 
     touch(one);
     z = fmaddsub(src, inv, -one);
-    if ( !eq(y, z) ) return __LINE__;
+    if ( !to_bool(y == z) ) return __LINE__;
     touch(one);
 
     x = addsub(src * inv, one);
     touch(inv);
     z = fmaddsub(src, inv, one);
-    if ( !eq(x, z) ) return __LINE__;
+    if ( !to_bool(x == z) ) return __LINE__;
 
     touch(inv);
     z = fmaddsub(src, inv, -one);
-    if ( !eq(y, z) ) return __LINE__;
+    if ( !to_bool(y == z) ) return __LINE__;
     touch(inv);
 #endif
 

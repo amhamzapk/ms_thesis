@@ -77,13 +77,16 @@ size_t consoled_guest_rx(void)
 
         if ( idx >= BUF_SZ )
         {
-            pv_console_puts(buf, BUF_SZ);
+            pv_console_puts(buf);
             idx = 0;
         }
     }
 
     if ( idx )
-        pv_console_puts(buf, idx);
+    {
+        buf[idx] = '\0';
+        pv_console_puts(buf);
+    }
 
     /* No need for a mem barrier because every character was already consumed */
     barrier();

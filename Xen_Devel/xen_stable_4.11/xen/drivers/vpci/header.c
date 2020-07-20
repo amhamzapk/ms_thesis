@@ -17,12 +17,12 @@
  * License along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <xen/p2m-common.h>
 #include <xen/sched.h>
 #include <xen/softirq.h>
 #include <xen/vpci.h>
 
 #include <asm/event.h>
-#include <asm/p2m.h>
 
 #define MAPPABLE_BAR(x)                                                 \
     ((x)->type == VPCI_BAR_MEM32 || (x)->type == VPCI_BAR_MEM64_LO ||   \
@@ -81,23 +81,12 @@ static int map_range(unsigned long s, unsigned long e, void *data,
  * BAR's enable bit has changed with the memory decoding bit already enabled.
  * If rom_only is not set then it's the memory decoding bit that changed.
  */
-static void modify_decoding(const struct pci_dev *pdev, uint16_t cmd,
-                            bool rom_only)
+static void modify_decoding(const struct pci_dev *pdev, bool map, bool rom_only)
 {
     struct vpci_header *header = &pdev->vpci->header;
-    bool map = cmd & PCI_COMMAND_MEMORY;
+    uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
+    uint16_t cmd;
     unsigned int i;
-
-    /*
-     * Make sure there are no mappings in the MSIX MMIO areas, so that accesses
-     * can be trapped (and emulated) by Xen when the memory decoding bit is
-     * enabled.
-     *
-     * FIXME: punching holes after the p2m has been set up might be racy for
-     * DomU usage, needs to be revisited.
-     */
-    if ( map && !rom_only && vpci_make_msix_hole(pdev) )
-        return;
 
     for ( i = 0; i < ARRAY_SIZE(header->bars); i++ )
     {
@@ -112,7 +101,7 @@ static void modify_decoding(const struct pci_dev *pdev, uint16_t cmd,
                            (map ? PCI_ROM_ADDRESS_ENABLE : 0);
 
             header->bars[i].enabled = header->rom_enabled = map;
-            pci_conf_write32(pdev->sbdf, rom_pos, val);
+            pci_conf_write32(pdev->seg, pdev->bus, slot, func, rom_pos, val);
             return;
         }
 
@@ -121,10 +110,12 @@ static void modify_decoding(const struct pci_dev *pdev, uint16_t cmd,
             header->bars[i].enabled = map;
     }
 
-    if ( !rom_only )
-        pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd);
-    else
-        ASSERT_UNREACHABLE();
+    ASSERT(!rom_only);
+    cmd = pci_conf_read16(pdev->seg, pdev->bus, slot, func, PCI_COMMAND);
+    cmd &= ~PCI_COMMAND_MEMORY;
+    cmd |= map ? PCI_COMMAND_MEMORY : 0;
+    pci_conf_write16(pdev->seg, pdev->bus, slot, func, PCI_COMMAND,
+                     cmd);
 }
 
 bool vpci_process_pending(struct vcpu *v)
@@ -133,7 +124,7 @@ bool vpci_process_pending(struct vcpu *v)
     {
         struct map_data data = {
             .d = v->domain,
-            .map = v->vpci.cmd & PCI_COMMAND_MEMORY,
+            .map = v->vpci.map,
         };
         int rc = rangeset_consume_ranges(v->vpci.mem, map_range, &data);
 
@@ -142,8 +133,7 @@ bool vpci_process_pending(struct vcpu *v)
 
         spin_lock(&v->vpci.pdev->vpci->lock);
         /* Disable memory decoding unconditionally on failure. */
-        modify_decoding(v->vpci.pdev,
-                        rc ? v->vpci.cmd & ~PCI_COMMAND_MEMORY : v->vpci.cmd,
+        modify_decoding(v->vpci.pdev, !rc && v->vpci.map,
                         !rc && v->vpci.rom_only);
         spin_unlock(&v->vpci.pdev->vpci->lock);
 
@@ -164,7 +154,7 @@ bool vpci_process_pending(struct vcpu *v)
 }
 
 static int __init apply_map(struct domain *d, const struct pci_dev *pdev,
-                            struct rangeset *mem, uint16_t cmd)
+                            struct rangeset *mem)
 {
     struct map_data data = { .d = d, .map = true };
     int rc;
@@ -173,13 +163,13 @@ static int __init apply_map(struct domain *d, const struct pci_dev *pdev,
         process_pending_softirqs();
     rangeset_destroy(mem);
     if ( !rc )
-        modify_decoding(pdev, cmd, false);
+        modify_decoding(pdev, true, false);
 
     return rc;
 }
 
 static void defer_map(struct domain *d, struct pci_dev *pdev,
-                      struct rangeset *mem, uint16_t cmd, bool rom_only)
+                      struct rangeset *mem, bool map, bool rom_only)
 {
     struct vcpu *curr = current;
 
@@ -191,17 +181,11 @@ static void defer_map(struct domain *d, struct pci_dev *pdev,
      */
     curr->vpci.pdev = pdev;
     curr->vpci.mem = mem;
-    curr->vpci.cmd = cmd;
+    curr->vpci.map = map;
     curr->vpci.rom_only = rom_only;
-    /*
-     * Raise a scheduler softirq in order to prevent the guest from resuming
-     * execution with pending mapping operations, to trigger the invocation
-     * of vpci_process_pending().
-     */
-    raise_softirq(SCHEDULE_SOFTIRQ);
 }
 
-static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
+static int modify_bars(const struct pci_dev *pdev, bool map, bool rom_only)
 {
     struct vpci_header *header = &pdev->vpci->header;
     struct rangeset *mem = rangeset_new(NULL, NULL, 0);
@@ -265,7 +249,7 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
      * Check for overlaps with other BARs. Note that only BARs that are
      * currently mapped (enabled) are checked for overlaps.
      */
-    for_each_pdev ( pdev->domain, tmp )
+    list_for_each_entry(tmp, &pdev->domain->arch.pdev_list, domain_list)
     {
         if ( tmp == pdev )
         {
@@ -321,11 +305,11 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
          * be called iff the memory decoding bit is enabled, thus the operation
          * will always be to establish mappings and process all the BARs.
          */
-        ASSERT((cmd & PCI_COMMAND_MEMORY) && !rom_only);
-        return apply_map(pdev->domain, pdev, mem, cmd);
+        ASSERT(map && !rom_only);
+        return apply_map(pdev->domain, pdev, mem);
     }
 
-    defer_map(dev->domain, dev, mem, cmd, rom_only);
+    defer_map(dev->domain, dev, mem, map, rom_only);
 
     return 0;
 }
@@ -333,7 +317,9 @@ static int modify_bars(const struct pci_dev *pdev, uint16_t cmd, bool rom_only)
 static void cmd_write(const struct pci_dev *pdev, unsigned int reg,
                       uint32_t cmd, void *data)
 {
-    uint16_t current_cmd = pci_conf_read16(pdev->sbdf, reg);
+    uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
+    uint16_t current_cmd = pci_conf_read16(pdev->seg, pdev->bus, slot, func,
+                                           reg);
 
     /*
      * Let Dom0 play with all the bits directly except for the memory
@@ -346,9 +332,9 @@ static void cmd_write(const struct pci_dev *pdev, unsigned int reg,
          * memory decoding bit has not been changed, so leave everything as-is,
          * hoping the guest will realize and try again.
          */
-        modify_bars(pdev, cmd, false);
+        modify_bars(pdev, cmd & PCI_COMMAND_MEMORY, false);
     else
-        pci_conf_write16(pdev->sbdf, reg, cmd);
+        pci_conf_write16(pdev->seg, pdev->bus, slot, func, reg, cmd);
 }
 
 static void bar_write(const struct pci_dev *pdev, unsigned int reg,
@@ -358,6 +344,16 @@ static void bar_write(const struct pci_dev *pdev, unsigned int reg,
     uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
     bool hi = false;
 
+    if ( pci_conf_read16(pdev->seg, pdev->bus, slot, func, PCI_COMMAND) &
+         PCI_COMMAND_MEMORY )
+    {
+        gprintk(XENLOG_WARNING,
+                "%04x:%02x:%02x.%u: ignored BAR %lu write with memory decoding enabled\n",
+                pdev->seg, pdev->bus, slot, func,
+                bar - pdev->vpci->header.bars);
+        return;
+    }
+
     if ( bar->type == VPCI_BAR_MEM64_HI )
     {
         ASSERT(reg > PCI_BASE_ADDRESS_0);
@@ -366,18 +362,6 @@ static void bar_write(const struct pci_dev *pdev, unsigned int reg,
     }
     else
         val &= PCI_BASE_ADDRESS_MEM_MASK;
-
-    if ( pci_conf_read16(pdev->sbdf, PCI_COMMAND) & PCI_COMMAND_MEMORY )
-    {
-        /* If the value written is the current one avoid printing a warning. */
-        if ( val != (uint32_t)(bar->addr >> (hi ? 32 : 0)) )
-            gprintk(XENLOG_WARNING,
-                    "%04x:%02x:%02x.%u: ignored BAR %lu write with memory decoding enabled\n",
-                    pdev->seg, pdev->bus, slot, func,
-                    bar - pdev->vpci->header.bars + hi);
-        return;
-    }
-
 
     /*
      * Update the cached address, so that when memory decoding is enabled
@@ -394,7 +378,8 @@ static void bar_write(const struct pci_dev *pdev, unsigned int reg,
         val |= bar->prefetchable ? PCI_BASE_ADDRESS_MEM_PREFETCH : 0;
     }
 
-    pci_conf_write32(pdev->sbdf, reg, val);
+    pci_conf_write32(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
+                     PCI_FUNC(pdev->devfn), reg, val);
 }
 
 static void rom_write(const struct pci_dev *pdev, unsigned int reg,
@@ -403,7 +388,8 @@ static void rom_write(const struct pci_dev *pdev, unsigned int reg,
     struct vpci_header *header = &pdev->vpci->header;
     struct vpci_bar *rom = data;
     uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
-    uint16_t cmd = pci_conf_read16(pdev->sbdf, PCI_COMMAND);
+    uint16_t cmd = pci_conf_read16(pdev->seg, pdev->bus, slot, func,
+                                   PCI_COMMAND);
     bool new_enabled = val & PCI_ROM_ADDRESS_ENABLE;
 
     if ( (cmd & PCI_COMMAND_MEMORY) && header->rom_enabled && new_enabled )
@@ -425,13 +411,9 @@ static void rom_write(const struct pci_dev *pdev, unsigned int reg,
     {
         /* Just update the ROM BAR field. */
         header->rom_enabled = new_enabled;
-        pci_conf_write32(pdev->sbdf, reg, val);
+        pci_conf_write32(pdev->seg, pdev->bus, slot, func, reg, val);
     }
-    /*
-     * Pass PCI_COMMAND_MEMORY or 0 to signal a map/unmap request, note that
-     * this fabricated command is never going to be written to the register.
-     */
-    else if ( modify_bars(pdev, new_enabled ? PCI_COMMAND_MEMORY : 0, true) )
+    else if ( modify_bars(pdev, new_enabled, true) )
         /*
          * No memory has been added or removed from the p2m (because the actual
          * p2m changes are deferred in defer_map) and the ROM enable bit has
@@ -448,14 +430,19 @@ static void rom_write(const struct pci_dev *pdev, unsigned int reg,
 
 static int init_bars(struct pci_dev *pdev)
 {
+    uint8_t slot = PCI_SLOT(pdev->devfn), func = PCI_FUNC(pdev->devfn);
     uint16_t cmd;
     uint64_t addr, size;
     unsigned int i, num_bars, rom_reg;
     struct vpci_header *header = &pdev->vpci->header;
     struct vpci_bar *bars = header->bars;
+    pci_sbdf_t sbdf = {
+        .sbdf = PCI_SBDF3(pdev->seg, pdev->bus, pdev->devfn),
+    };
     int rc;
 
-    switch ( pci_conf_read8(pdev->sbdf, PCI_HEADER_TYPE) & 0x7f )
+    switch ( pci_conf_read8(pdev->seg, pdev->bus, slot, func, PCI_HEADER_TYPE)
+             & 0x7f )
     {
     case PCI_HEADER_TYPE_NORMAL:
         num_bars = PCI_HEADER_NORMAL_NR_BARS;
@@ -477,13 +464,11 @@ static int init_bars(struct pci_dev *pdev)
     if ( rc )
         return rc;
 
-    if ( pdev->ignore_bars )
-        return 0;
-
     /* Disable memory decoding before sizing. */
-    cmd = pci_conf_read16(pdev->sbdf, PCI_COMMAND);
+    cmd = pci_conf_read16(pdev->seg, pdev->bus, slot, func, PCI_COMMAND);
     if ( cmd & PCI_COMMAND_MEMORY )
-        pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd & ~PCI_COMMAND_MEMORY);
+        pci_conf_write16(pdev->seg, pdev->bus, slot, func, PCI_COMMAND,
+                         cmd & ~PCI_COMMAND_MEMORY);
 
     for ( i = 0; i < num_bars; i++ )
     {
@@ -497,14 +482,15 @@ static int init_bars(struct pci_dev *pdev)
                                    4, &bars[i]);
             if ( rc )
             {
-                pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd);
+                pci_conf_write16(pdev->seg, pdev->bus, slot, func,
+                                 PCI_COMMAND, cmd);
                 return rc;
             }
 
             continue;
         }
 
-        val = pci_conf_read32(pdev->sbdf, reg);
+        val = pci_conf_read32(pdev->seg, pdev->bus, slot, func, reg);
         if ( (val & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_IO )
         {
             bars[i].type = VPCI_BAR_IO;
@@ -516,11 +502,12 @@ static int init_bars(struct pci_dev *pdev)
         else
             bars[i].type = VPCI_BAR_MEM32;
 
-        rc = pci_size_mem_bar(pdev->sbdf, reg, &addr, &size,
+        rc = pci_size_mem_bar(sbdf, reg, &addr, &size,
                               (i == num_bars - 1) ? PCI_BAR_LAST : 0);
         if ( rc < 0 )
         {
-            pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd);
+            pci_conf_write16(pdev->seg, pdev->bus, slot, func, PCI_COMMAND,
+                             cmd);
             return rc;
         }
 
@@ -538,13 +525,14 @@ static int init_bars(struct pci_dev *pdev)
                                &bars[i]);
         if ( rc )
         {
-            pci_conf_write16(pdev->sbdf, PCI_COMMAND, cmd);
+            pci_conf_write16(pdev->seg, pdev->bus, slot, func, PCI_COMMAND,
+                             cmd);
             return rc;
         }
     }
 
     /* Check expansion ROM. */
-    rc = pci_size_mem_bar(pdev->sbdf, rom_reg, &addr, &size, PCI_BAR_ROM);
+    rc = pci_size_mem_bar(sbdf, rom_reg, &addr, &size, PCI_BAR_ROM);
     if ( rc > 0 && size )
     {
         struct vpci_bar *rom = &header->bars[num_bars];
@@ -552,8 +540,8 @@ static int init_bars(struct pci_dev *pdev)
         rom->type = VPCI_BAR_ROM;
         rom->size = size;
         rom->addr = addr;
-        header->rom_enabled = pci_conf_read32(pdev->sbdf, rom_reg) &
-                              PCI_ROM_ADDRESS_ENABLE;
+        header->rom_enabled = pci_conf_read32(pdev->seg, pdev->bus, slot, func,
+                                              rom_reg) & PCI_ROM_ADDRESS_ENABLE;
 
         rc = vpci_add_register(pdev->vpci, vpci_hw_read32, rom_write, rom_reg,
                                4, rom);
@@ -561,7 +549,7 @@ static int init_bars(struct pci_dev *pdev)
             rom->type = VPCI_BAR_EMPTY;
     }
 
-    return (cmd & PCI_COMMAND_MEMORY) ? modify_bars(pdev, cmd, false) : 0;
+    return (cmd & PCI_COMMAND_MEMORY) ? modify_bars(pdev, true, false) : 0;
 }
 REGISTER_VPCI_INIT(init_bars, VPCI_PRIORITY_MIDDLE);
 

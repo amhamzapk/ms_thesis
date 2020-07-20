@@ -52,7 +52,6 @@
 #include <xen/lib.h>
 #include <xen/cpu.h>
 #include <xen/init.h>
-#include <xen/param.h>
 #include <xen/softirq.h>
 #include <xen/trace.h>
 #include <asm/cpuidle.h>
@@ -721,24 +720,18 @@ static void mwait_idle(void)
 	unsigned int cpu = smp_processor_id();
 	struct acpi_processor_power *power = processor_powers[cpu];
 	struct acpi_processor_cx *cx = NULL;
-	unsigned int next_state;
+	unsigned int eax, next_state, cstate;
 	u64 before, after;
 	u32 exp = 0, pred = 0, irq_traced[4] = { 0 };
 
-	if (max_cstate > 0 && power &&
+	if (max_cstate > 0 && power && !sched_has_urgent_vcpu() &&
 	    (next_state = cpuidle_current_governor->select(power)) > 0) {
-		unsigned int max_state = sched_has_urgent_vcpu() ? ACPI_STATE_C1
-								 : max_cstate;
-
 		do {
 			cx = &power->states[next_state];
-		} while ((cx->type > max_state || (cx->type == max_cstate &&
-			  MWAIT_HINT2SUBSTATE(cx->address) > max_csubstate)) &&
-			 --next_state);
+		} while (cx->type > max_cstate && --next_state);
 		if (!next_state)
 			cx = NULL;
-		else if (tb_init_done)
-			menu_get_trace_data(&exp, &pred);
+		menu_get_trace_data(&exp, &pred);
 	}
 	if (!cx) {
 		if (pm_idle_save)
@@ -756,8 +749,8 @@ static void mwait_idle(void)
 
 	cpufreq_dbs_timer_suspend();
 
-	rcu_idle_enter(cpu);
-	/* rcu_idle_enter() can raise TIMER_SOFTIRQ. Process it now. */
+	sched_tick_suspend();
+	/* sched_tick_suspend() can raise TIMER_SOFTIRQ. Process it now. */
 	process_pending_softirqs();
 
 	/* Interrupts must be disabled for C2 and higher transitions. */
@@ -765,13 +758,13 @@ static void mwait_idle(void)
 
 	if (!cpu_is_haltable(cpu)) {
 		local_irq_enable();
-		rcu_idle_exit(cpu);
+		sched_tick_resume();
 		cpufreq_dbs_timer_resume();
 		return;
 	}
 
-	if ((cx->type >= 3) && errata_c6_workaround())
-		cx = power->safe_state;
+	eax = cx->address;
+	cstate = ((eax >> MWAIT_SUBSTATE_SIZE) & MWAIT_CSTATE_MASK) + 1;
 
 #if 0 /* XXX Can we/do we need to do something similar on Xen? */
 	/*
@@ -782,18 +775,18 @@ static void mwait_idle(void)
 		leave_mm(cpu);
 #endif
 
-	if (!(lapic_timer_reliable_states & (1 << cx->type)))
+	if (!(lapic_timer_reliable_states & (1 << cstate)))
 		lapic_timer_off();
 
-	before = alternative_call(cpuidle_get_tick);
+	before = cpuidle_get_tick();
 	TRACE_4D(TRC_PM_IDLE_ENTRY, cx->type, before, exp, pred);
 
 	update_last_cx_stat(power, cx, before);
 
 	if (cpu_is_haltable(cpu))
-		mwait_idle_with_hints(cx->address, MWAIT_ECX_INTERRUPT_BREAK);
+		mwait_idle_with_hints(eax, MWAIT_ECX_INTERRUPT_BREAK);
 
-	after = alternative_call(cpuidle_get_tick);
+	after = cpuidle_get_tick();
 
 	cstate_restore_tsc();
 	trace_exit_reason(irq_traced);
@@ -804,10 +797,10 @@ static void mwait_idle(void)
 	update_idle_stats(power, cx, before, after);
 	local_irq_enable();
 
-	if (!(lapic_timer_reliable_states & (1 << cx->type)))
+	if (!(lapic_timer_reliable_states & (1 << cstate)))
 		lapic_timer_on();
 
-	rcu_idle_exit(cpu);
+	sched_tick_resume();
 	cpufreq_dbs_timer_resume();
 
 	if ( cpuidle_current_governor->reflect )
@@ -924,7 +917,8 @@ static const struct idle_cpu idle_cpu_dnv = {
 };
 
 #define ICPU(model, cpu) \
-	{ X86_VENDOR_INTEL, 6, model, X86_FEATURE_ALWAYS, &idle_cpu_##cpu}
+    { X86_VENDOR_INTEL, 6, model, X86_FEATURE_MONITOR, \
+        &idle_cpu_##cpu}
 
 static const struct x86_cpu_id intel_idle_ids[] __initconstrel = {
 	ICPU(0x1a, nehalem),
@@ -963,7 +957,6 @@ static const struct x86_cpu_id intel_idle_ids[] __initconstrel = {
 	ICPU(0x5c, bxt),
 	ICPU(0x7a, bxt),
 	ICPU(0x5f, dnv),
-	ICPU(0x86, dnv),
 	{}
 };
 
@@ -1128,11 +1121,6 @@ static int __init mwait_idle_probe(void)
 		return -ENODEV;
 	}
 
-	if (!boot_cpu_has(X86_FEATURE_MONITOR)) {
-		pr_debug(PREFIX "Please enable MWAIT in BIOS SETUP\n");
-		return -ENODEV;
-	}
-
 	if (boot_cpu_data.cpuid_level < CPUID_MWAIT_LEAF)
 		return -ENODEV;
 
@@ -1174,17 +1162,12 @@ static int mwait_idle_cpu_init(struct notifier_block *nfb,
 	struct acpi_processor_power *dev = processor_powers[cpu];
 
 	switch (action) {
-		int rc;
-
 	default:
 		return NOTIFY_DONE;
 
 	case CPU_UP_PREPARE:
-		rc = cpuidle_init_cpu(cpu);
-		dev = processor_powers[cpu];
-		if (!rc && cpuidle_current_governor->enable)
-			rc = cpuidle_current_governor->enable(dev);
-		return !rc ? NOTIFY_DONE : notifier_from_errno(rc);
+		cpuidle_init_cpu(cpu);
+		return NOTIFY_DONE;
 
 	case CPU_ONLINE:
 		if (!dev)
@@ -1273,6 +1256,8 @@ int __init mwait_idle_init(struct notifier_block *nfb)
 	}
 	if (!err) {
 		nfb->notifier_call = mwait_idle_cpu_init;
+		mwait_idle_cpu_init(nfb, CPU_UP_PREPARE, NULL);
+
 		pm_idle_save = pm_idle;
 		pm_idle = mwait_idle;
 		dead_idle = acpi_dead_idle;

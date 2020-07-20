@@ -3,6 +3,7 @@
 
 #include <xen/cache.h>
 #include <asm/page.h>
+#include <asm/percpu.h>
 #undef ENTRY
 #undef ALIGN
 
@@ -11,6 +12,7 @@
 #define FORMAT "pei-x86-64"
 #undef __XEN_VIRT_START
 #define __XEN_VIRT_START __image_base__
+#define SECTION_ALIGN MB(2)
 #define DECL_SECTION(x) x :
 
 ENTRY(efi_start)
@@ -18,17 +20,12 @@ ENTRY(efi_start)
 #else /* !EFI */
 
 #define FORMAT "elf64-x86-64"
+#define SECTION_ALIGN PAGE_SIZE
 #define DECL_SECTION(x) x : AT(ADDR(x) - __XEN_VIRT_START)
 
 ENTRY(start_pa)
 
 #endif /* EFI */
-
-#if defined(CONFIG_XEN_ALIGN_2M) || defined(EFI)
-# define SECTION_ALIGN MB(2)
-#else
-# define SECTION_ALIGN PAGE_SIZE
-#endif
 
 OUTPUT_FORMAT(FORMAT, FORMAT, FORMAT)
 
@@ -128,6 +125,17 @@ SECTIONS
        *(.ex_table.pre)
        __stop___pre_ex_table = .;
 
+#ifdef CONFIG_LOCK_PROFILE
+       . = ALIGN(POINTER_ALIGN);
+       __lock_profile_start = .;
+       *(.lockprofile.data)
+       __lock_profile_end = .;
+#endif
+       . = ALIGN(POINTER_ALIGN);
+       __param_start = .;
+       *(.data.param)
+       __param_end = .;
+
 #if defined(CONFIG_HAS_VPCI) && defined(CONFIG_LATE_HWDOM)
        . = ALIGN(POINTER_ALIGN);
        __start_vpci_array = .;
@@ -163,19 +171,6 @@ SECTIONS
   } :text
 #endif
 #endif
-
-/*
- * ELF builds are linked to a fixed virtual address, and in principle
- * shouldn't have a .reloc section.  However, due to the way EFI support is
- * currently implemented, retaining the .reloc section is necessary.
- */
-#if defined(XEN_BUILD_EFI) && !defined(EFI)
-  . = ALIGN(4);
-  DECL_SECTION(.reloc) {
-    *(.reloc)
-  } :text
-#endif
-
   _erodata = .;
 
   . = ALIGN(SECTION_ALIGN);
@@ -207,7 +202,8 @@ SECTIONS
 #endif
 
        *(.init.rodata)
-       *(.init.rodata.*)
+       *(.init.rodata.rel)
+       *(.init.rodata.str*)
 
        . = ALIGN(POINTER_ALIGN);
        __setup_start = .;
@@ -240,13 +236,6 @@ SECTIONS
         *(.altinstructions)
         __alt_instructions_end = .;
 
-#ifdef CONFIG_DEBUG_LOCK_PROFILE
-       . = ALIGN(POINTER_ALIGN);
-       __lock_profile_start = .;
-       *(.lockprofile.data)
-       __lock_profile_end = .;
-#endif
-
        . = ALIGN(8);
        __ctors_start = .;
        *(.ctors)
@@ -274,13 +263,6 @@ SECTIONS
        __start_schedulers_array = .;
        *(.data.schedulers)
        __end_schedulers_array = .;
-
-#ifdef CONFIG_HYPFS
-       . = ALIGN(8);
-       __paramhypfs_start = .;
-       *(.data.paramhypfs)
-       __paramhypfs_end = .;
-#endif
   } :text
 
   DECL_SECTION(.data) {
@@ -314,22 +296,18 @@ SECTIONS
 
 #ifdef EFI
   . = ALIGN(4);
-  DECL_SECTION(.reloc) {
+  .reloc : {
     *(.reloc)
   } :text
   /* Trick the linker into setting the image size to exactly 16Mb. */
   . = ALIGN(__section_alignment__);
-  DECL_SECTION(.pad) {
+  .pad : {
     . = ALIGN(MB(16));
   } :text
 #endif
 
 #ifndef XEN_BUILD_EFI
   efi = .;
-#endif
-
-#ifdef CONFIG_HYPERV_GUEST
-  hv_hcall_page = ABSOLUTE(HV_HCALL_PAGE - XEN_VIRT_START + __XEN_VIRT_START);
 #endif
 
   /* Sections to be discarded */
@@ -357,17 +335,13 @@ SECTIONS
   .comment 0 : { *(.comment) }
 }
 
-ASSERT(__2M_rwdata_end <= XEN_VIRT_END - XEN_VIRT_START + __XEN_VIRT_START -
-                          FIXADDR_X_SIZE -
-                          NR_CPUS * PAGE_SIZE,
+ASSERT(__image_base__ > XEN_VIRT_START ||
+       __2M_rwdata_end <= XEN_VIRT_END - NR_CPUS * PAGE_SIZE,
        "Xen image overlaps stubs area")
 
 #ifdef CONFIG_KEXEC
 ASSERT(kexec_reloc_size - kexec_reloc <= PAGE_SIZE, "kexec_reloc is too large")
 #endif
-
-/* The Multiboot setup paths relies on this to simplify superpage PTE creation. */
-ASSERT(IS_ALIGNED(_start,            MB(2)), "_start misaligned")
 
 ASSERT(IS_ALIGNED(__2M_text_end,     SECTION_ALIGN), "__2M_text_end misaligned")
 ASSERT(IS_ALIGNED(__2M_rodata_start, SECTION_ALIGN), "__2M_rodata_start misaligned")
@@ -391,6 +365,3 @@ ASSERT((trampoline_end - trampoline_start) < TRAMPOLINE_SPACE - MBI_SPACE_MIN,
     "not enough room for trampoline and mbi data")
 ASSERT((wakeup_stack - wakeup_stack_start) >= WAKEUP_STACK_MIN,
     "wakeup stack too small")
-
-/* Plenty of boot code assumes that Xen isn't larger than 16M. */
-ASSERT(_end - _start <= MB(16), "Xen too large for early-boot assumptions")

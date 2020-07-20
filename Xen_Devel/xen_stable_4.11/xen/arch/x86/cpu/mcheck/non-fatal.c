@@ -38,8 +38,7 @@ static void mce_checkregs (void *info)
 	struct mca_summary bs;
 	static uint64_t dumpcount = 0;
 
-	mctc = mcheck_mca_logout(MCA_POLLER, this_cpu(poll_bankmask),
-				 &bs, NULL);
+	mctc = mcheck_mca_logout(MCA_POLLER, __get_cpu_var(poll_bankmask), &bs, NULL);
 
 	if (bs.errcnt && mctc != NULL) {
 		adjust++;
@@ -94,7 +93,7 @@ static int __init init_nonfatal_mce_checker(void)
 	if (!opt_mce || !mce_available(c))
 		return -ENODEV;
 
-	if (!this_cpu(poll_bankmask))
+	if (__get_cpu_var(poll_bankmask) == NULL)
 		return -EINVAL;
 
 	/*
@@ -102,8 +101,7 @@ static int __init init_nonfatal_mce_checker(void)
 	 */
 	switch (c->x86_vendor) {
 	case X86_VENDOR_AMD:
-	case X86_VENDOR_HYGON:
-		/* Assume we are on K8 or newer AMD or Hygon CPU here */
+		/* Assume we are on K8 or newer AMD CPU here */
 		amd_nonfatal_mcheck_init(c);
 		break;
 

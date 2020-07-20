@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-from __future__ import print_function
-
 import sys
-from functools import reduce
 
 def read_levels():
 	f = open('../../../libs/toollog/include/xentoollog.h', 'r')
@@ -96,7 +93,7 @@ def autogen_header(open_comment, close_comment):
 
 if __name__ == '__main__':
 	if len(sys.argv) < 3:
-		print("Usage: genlevels.py <mli> <ml> <c-inc>", file=sys.stderr)
+		print >>sys.stderr, "Usage: genlevels.py <mli> <ml> <c-inc>"
 		sys.exit(1)
 
 	levels, olevels = read_levels()

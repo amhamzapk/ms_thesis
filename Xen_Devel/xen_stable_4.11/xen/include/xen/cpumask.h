@@ -8,13 +8,16 @@
  * See detailed comments in the file xen/bitmap.h describing the
  * data type on which these cpumasks are based.
  *
+ * For details of cpumask_scnprintf() and cpulist_scnprintf(),
+ * see bitmap_scnprintf() and bitmap_scnlistprintf() in lib/bitmap.c.
+ *
  * The available cpumask operations are:
  *
  * void cpumask_set_cpu(cpu, mask)	turn on bit 'cpu' in mask
  * void cpumask_clear_cpu(cpu, mask)	turn off bit 'cpu' in mask
  * void cpumask_setall(mask)		set all bits
  * void cpumask_clear(mask)		clear all bits
- * bool cpumask_test_cpu(cpu, mask)	true iff bit 'cpu' set in mask
+ * int cpumask_test_cpu(cpu, mask)	true iff bit 'cpu' set in mask
  * int cpumask_test_and_set_cpu(cpu, mask) test and set bit 'cpu' in mask
  * int cpumask_test_and_clear_cpu(cpu, mask) test and clear bit 'cpu' in mask
  *
@@ -31,6 +34,9 @@
  * int cpumask_full(mask)		Is mask full (all bits sets)?
  * int cpumask_weight(mask)		Hamming weigh - number of set bits
  *
+ * void cpumask_shift_right(dst, src, n) Shift right
+ * void cpumask_shift_left(dst, src, n)	Shift left
+ *
  * int cpumask_first(mask)		Number lowest set bit, or NR_CPUS
  * int cpumask_next(cpu, mask)		Next cpu past 'cpu', or NR_CPUS
  * int cpumask_last(mask)		Number highest set bit, or NR_CPUS
@@ -39,6 +45,9 @@
  *
  * const cpumask_t *cpumask_of(cpu)	Return cpumask with bit 'cpu' set
  * unsigned long *cpumask_bits(mask)	Array of unsigned long's in mask
+ *
+ * int cpumask_scnprintf(buf, len, mask) Format cpumask for printing
+ * int cpulist_scnprintf(buf, len, mask) Format cpumask as list for printing
  *
  * for_each_cpu(cpu, mask)		for-loop cpu over mask
  *
@@ -50,9 +59,20 @@
  * int cpu_possible(cpu)		Is some cpu possible?
  * int cpu_present(cpu)			Is some cpu present (can schedule)?
  *
+ * int any_online_cpu(mask)		First online cpu in mask, or NR_CPUS
+ *
  * for_each_possible_cpu(cpu)		for-loop cpu over cpu_possible_map
  * for_each_online_cpu(cpu)		for-loop cpu over cpu_online_map
  * for_each_present_cpu(cpu)		for-loop cpu over cpu_present_map
+ *
+ * Subtlety:
+ * 1) The 'type-checked' form of cpumask_test_cpu() causes gcc (3.3.2, anyway)
+ *    to generate slightly worse code.  Note for example the additional
+ *    40 lines of assembly code compiling the "for each possible cpu"
+ *    loops buried in the disk_stat_read() macros calls when compiling
+ *    drivers/block/genhd.c (arch i386, CONFIG_SMP=y).  So use a simple
+ *    one-line #define for cpumask_test_cpu(), instead of wrapping an inline
+ *    inside a macro, the way we do the other calls.
  */
 
 #include <xen/bitmap.h>
@@ -60,12 +80,6 @@
 #include <xen/random.h>
 
 typedef struct cpumask{ DECLARE_BITMAP(bits, NR_CPUS); } cpumask_t;
-
-/*
- * printf arguments for a cpumask.  Shorthand for using '%*pb[l]' when
- * printing a cpumask.
- */
-#define CPUMASK_PR(src) nr_cpu_ids, cpumask_bits(src)
 
 extern unsigned int nr_cpu_ids;
 
@@ -114,10 +128,9 @@ static inline void cpumask_clear(cpumask_t *dstp)
 	bitmap_zero(dstp->bits, nr_cpumask_bits);
 }
 
-static inline bool cpumask_test_cpu(unsigned int cpu, const cpumask_t *src)
-{
-    return test_bit(cpumask_check(cpu), src->bits);
-}
+/* No static inline type checking - see Subtlety (1) above. */
+#define cpumask_test_cpu(cpu, cpumask) \
+	test_bit(cpumask_check(cpu), (cpumask)->bits)
 
 static inline int cpumask_test_and_set_cpu(int cpu, volatile cpumask_t *addr)
 {
@@ -206,6 +219,18 @@ static inline void cpumask_copy(cpumask_t *dstp, const cpumask_t *srcp)
 	bitmap_copy(dstp->bits, srcp->bits, nr_cpumask_bits);
 }
 
+static inline void cpumask_shift_right(cpumask_t *dstp,
+				       const cpumask_t *srcp, int n)
+{
+	bitmap_shift_right(dstp->bits, srcp->bits, n, nr_cpumask_bits);
+}
+
+static inline void cpumask_shift_left(cpumask_t *dstp,
+				      const cpumask_t *srcp, int n)
+{
+	bitmap_shift_left(dstp->bits, srcp->bits, n, nr_cpumask_bits);
+}
+
 static inline int cpumask_first(const cpumask_t *srcp)
 {
 	return min_t(int, nr_cpu_ids, find_first_bit(srcp->bits, nr_cpu_ids));
@@ -287,7 +312,17 @@ static inline const cpumask_t *cpumask_of(unsigned int cpu)
 
 #define cpumask_bits(maskp) ((maskp)->bits)
 
-extern const cpumask_t cpumask_all;
+static inline int cpumask_scnprintf(char *buf, int len,
+				    const cpumask_t *srcp)
+{
+	return bitmap_scnprintf(buf, len, srcp->bits, nr_cpu_ids);
+}
+
+static inline int cpulist_scnprintf(char *buf, int len,
+				    const cpumask_t *srcp)
+{
+	return bitmap_scnlistprintf(buf, len, srcp->bits, nr_cpu_ids);
+}
 
 /*
  * cpumask_var_t: struct cpumask for stack usage.
@@ -310,9 +345,9 @@ extern const cpumask_t cpumask_all;
 
 typedef cpumask_t *cpumask_var_t;
 
-static inline bool alloc_cpumask_var(cpumask_var_t *mask)
+static inline bool_t alloc_cpumask_var(cpumask_var_t *mask)
 {
-	*mask = _xmalloc(nr_cpumask_bits / 8, sizeof(long));
+	*(void **)mask = _xmalloc(nr_cpumask_bits / 8, sizeof(long));
 	return *mask != NULL;
 }
 
@@ -323,9 +358,9 @@ static inline bool cond_alloc_cpumask_var(cpumask_var_t *mask)
 	return *mask != NULL;
 }
 
-static inline bool zalloc_cpumask_var(cpumask_var_t *mask)
+static inline bool_t zalloc_cpumask_var(cpumask_var_t *mask)
 {
-	*mask = _xzalloc(nr_cpumask_bits / 8, sizeof(long));
+	*(void **)mask = _xzalloc(nr_cpumask_bits / 8, sizeof(long));
 	return *mask != NULL;
 }
 
@@ -348,16 +383,16 @@ static inline void free_cpumask_var(cpumask_var_t mask)
 #else
 typedef cpumask_t cpumask_var_t[1];
 
-static inline bool alloc_cpumask_var(cpumask_var_t *mask)
+static inline bool_t alloc_cpumask_var(cpumask_var_t *mask)
 {
-	return true;
+	return 1;
 }
 #define cond_alloc_cpumask_var alloc_cpumask_var
 
-static inline bool zalloc_cpumask_var(cpumask_var_t *mask)
+static inline bool_t zalloc_cpumask_var(cpumask_var_t *mask)
 {
 	cpumask_clear(*mask);
-	return true;
+	return 1;
 }
 #define cond_zalloc_cpumask_var zalloc_cpumask_var
 

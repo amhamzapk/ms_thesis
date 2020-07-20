@@ -26,8 +26,6 @@ struct vcpu;
 
 #ifdef CONFIG_XENOPROF
 
-#include <public/xen.h>
-
 int nmi_reserve_counters(void);
 int nmi_setup_events(void);
 int nmi_enable_virq(void);

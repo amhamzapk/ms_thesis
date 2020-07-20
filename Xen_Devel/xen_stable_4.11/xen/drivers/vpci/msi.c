@@ -27,7 +27,7 @@ static uint32_t control_read(const struct pci_dev *pdev, unsigned int reg,
 {
     const struct vpci_msi *msi = data;
 
-    return MASK_INSR(fls(pdev->msi_maxvec) - 1, PCI_MSI_FLAGS_QMASK) |
+    return MASK_INSR(fls(msi->max_vectors) - 1, PCI_MSI_FLAGS_QMASK) |
            MASK_INSR(fls(msi->vectors) - 1, PCI_MSI_FLAGS_QSIZE) |
            (msi->enabled ? PCI_MSI_FLAGS_ENABLE : 0) |
            (msi->masking ? PCI_MSI_FLAGS_MASKBIT : 0) |
@@ -40,7 +40,7 @@ static void control_write(const struct pci_dev *pdev, unsigned int reg,
     struct vpci_msi *msi = data;
     unsigned int vectors = min_t(uint8_t,
                                  1u << MASK_EXTR(val, PCI_MSI_FLAGS_QSIZE),
-                                 pdev->msi_maxvec);
+                                 msi->max_vectors);
     bool new_enabled = val & PCI_MSI_FLAGS_ENABLE;
 
     /*
@@ -77,7 +77,9 @@ static void control_write(const struct pci_dev *pdev, unsigned int reg,
     msi->vectors = vectors;
     msi->enabled = new_enabled;
 
-    pci_conf_write16(pdev->sbdf, reg, control_read(pdev, reg, data));
+    pci_conf_write16(pdev->seg, pdev->bus, PCI_SLOT(pdev->devfn),
+                     PCI_FUNC(pdev->devfn), reg,
+                     control_read(pdev, reg, data));
 }
 
 static void update_msi(const struct pci_dev *pdev, struct vpci_msi *msi)
@@ -85,7 +87,8 @@ static void update_msi(const struct pci_dev *pdev, struct vpci_msi *msi)
     if ( !msi->enabled )
         return;
 
-    if ( vpci_msi_arch_update(msi, pdev) )
+    vpci_msi_arch_disable(msi, pdev);
+    if ( vpci_msi_arch_enable(msi, pdev, msi->vectors) )
         msi->enabled = false;
 }
 
@@ -209,13 +212,15 @@ static int init_msi(struct pci_dev *pdev)
         return ret;
 
     /* Get the maximum number of vectors the device supports. */
-    control = pci_conf_read16(pdev->sbdf, msi_control_reg(pos));
+    control = pci_conf_read16(pdev->seg, pdev->bus, slot, func,
+                              msi_control_reg(pos));
 
     /*
      * FIXME: I've only been able to test this code with devices using a single
      * MSI interrupt and no mask register.
      */
-    ASSERT(pdev->msi_maxvec <= 32);
+    pdev->vpci->msi->max_vectors = multi_msi_capable(control);
+    ASSERT(pdev->vpci->msi->max_vectors <= 32);
 
     /* The multiple message enable is 0 after reset (1 message enabled). */
     pdev->vpci->msi->vectors = 1;
@@ -278,7 +283,7 @@ void vpci_dump_msi(void)
 
         printk("vPCI MSI/MSI-X d%d\n", d->domain_id);
 
-        for_each_pdev ( d, pdev )
+        list_for_each_entry ( pdev, &d->arch.pdev_list, domain_list )
         {
             const struct vpci_msi *msi;
             const struct vpci_msix *msix;
@@ -297,7 +302,7 @@ void vpci_dump_msi(void)
                 if ( msi->masking )
                     printk(" mask=%08x", msi->mask);
                 printk(" vectors max: %u enabled: %u\n",
-                       pdev->msi_maxvec, msi->vectors);
+                       msi->max_vectors, msi->vectors);
 
                 vpci_msi_arch_print(msi);
             }

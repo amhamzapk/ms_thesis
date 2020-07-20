@@ -24,6 +24,4 @@ distclean: clean
 xs-test: xs-test.o Makefile
 	$(CC) -o $@ $< $(LDFLAGS) $(LDLIBS_libxenstore)
 
-install uninstall:
-
 -include $(DEPS_INCLUDE)

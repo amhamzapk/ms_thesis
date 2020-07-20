@@ -1,11 +1,10 @@
 #ifndef __INIT_DOM_JSON_H
 #define __INIT_DOM_JSON_H
 
-#include <libxl.h>
 /*
  * Generate a stub JSON config for a domain with the given domid.
  */
-int gen_stub_json_config(uint32_t domid, libxl_uuid *uuid);
+int gen_stub_json_config(uint32_t domid);
 
 #endif
 /*

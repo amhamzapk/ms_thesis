@@ -22,7 +22,7 @@
 
 #ifdef	FSYS_ZFS
 
-#include <xenfsimage_grub.h>
+#include <fsimage_grub.h>
 #include <fsimage_priv.h>
 #include <stdio.h>
 #include <inttypes.h>

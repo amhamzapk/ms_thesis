@@ -30,7 +30,7 @@
 
 static LIST_HEAD(ats_dev_drhd_units);
 
-struct acpi_drhd_unit *find_ats_dev_drhd(struct vtd_iommu *iommu)
+struct acpi_drhd_unit * find_ats_dev_drhd(struct iommu *iommu)
 {
     struct acpi_drhd_unit *drhd;
     list_for_each_entry ( drhd, &ats_dev_drhd_units, list )
@@ -71,25 +71,23 @@ int ats_device(const struct pci_dev *pdev, const struct acpi_drhd_unit *drhd)
     return pos;
 }
 
-static bool device_in_domain(const struct vtd_iommu *iommu,
-                             const struct pci_dev *pdev, uint16_t did)
+static int device_in_domain(const struct iommu *iommu,
+                            const struct pci_dev *pdev, u16 did)
 {
-    struct root_entry *root_entry;
+    struct root_entry *root_entry = NULL;
     struct context_entry *ctxt_entry = NULL;
-    unsigned int tt;
-    bool found = false;
+    int tt, found = 0;
 
-    if ( unlikely(!iommu->root_maddr) )
-    {
-        ASSERT_UNREACHABLE();
-        return false;
-    }
-
-    root_entry = map_vtd_domain_page(iommu->root_maddr);
-    if ( !root_present(root_entry[pdev->bus]) )
+    root_entry = (struct root_entry *) map_vtd_domain_page(iommu->root_maddr);
+    if ( !root_entry || !root_present(root_entry[pdev->bus]) )
         goto out;
 
-    ctxt_entry = map_vtd_domain_page(root_entry[pdev->bus].val);
+    ctxt_entry = (struct context_entry *)
+                 map_vtd_domain_page(root_entry[pdev->bus].val);
+
+    if ( ctxt_entry == NULL )
+        goto out;
+
     if ( context_domain_id(ctxt_entry[pdev->devfn]) != did )
         goto out;
 
@@ -97,7 +95,7 @@ static bool device_in_domain(const struct vtd_iommu *iommu,
     if ( tt != CONTEXT_TT_DEV_IOTLB )
         goto out;
 
-    found = true;
+    found = 1;
 out:
     if ( root_entry )
         unmap_vtd_domain_page(root_entry);
@@ -108,7 +106,7 @@ out:
     return found;
 }
 
-int dev_invalidate_iotlb(struct vtd_iommu *iommu, u16 did,
+int dev_invalidate_iotlb(struct iommu *iommu, u16 did,
     u64 addr, unsigned int size_order, u64 type)
 {
     struct pci_dev *pdev, *temp;

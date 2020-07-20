@@ -8,5 +8,3 @@ clean:
 
 distclean:
 	$(MAKE) -C tools distclean
-
-install uninstall:

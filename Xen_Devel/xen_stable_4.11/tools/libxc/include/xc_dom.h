@@ -123,18 +123,24 @@ struct xc_dom_image {
 
     /* other state info */
     uint32_t f_active[XENFEAT_NR_SUBMAPS];
-
     /*
-     * pv_p2m is specific to x86 PV guests, and maps GFNs to MFNs.  It is
-     * eventually copied into guest context.
+     * p2m_host maps guest physical addresses an offset from
+     * rambase_pfn (see below) into gfns.
+     *
+     * For a pure PV guest this means that it maps GPFNs into MFNs for
+     * a hybrid guest this means that it maps GPFNs to GPFNS.
+     *
+     * Note that the input is offset by rambase.
      */
-    xen_pfn_t *pv_p2m;
+    xen_pfn_t *p2m_host;
+    void *p2m_guest;
 
     /* physical memory
      *
      * An x86 PV guest has one or more blocks of physical RAM,
-     * consisting of total_pages starting at 0. The start address and
-     * size of each block is controlled by vNUMA structures.
+     * consisting of total_pages starting at rambase_pfn. The start
+     * address and size of each block is controlled by vNUMA
+     * structures.
      *
      * An ARM guest has GUEST_RAM_BANKS regions of RAM, with
      * rambank_size[i] pages in each. The lowest RAM address
@@ -224,9 +230,6 @@ struct xc_dom_image {
 #endif
 
     xen_pfn_t vuart_gfn;
-
-    /* Number of vCPUs */
-    unsigned int max_vcpus;
 };
 
 /* --- pluggable kernel loader ------------------------------------- */
@@ -247,9 +250,8 @@ void xc_dom_register_loader(struct xc_dom_loader *loader);
 /* --- arch specific hooks ----------------------------------------- */
 
 struct xc_dom_arch {
+    /* pagetable setup */
     int (*alloc_magic_pages) (struct xc_dom_image * dom);
-
-    /* pagetable setup - x86 PV only */
     int (*alloc_pgtables) (struct xc_dom_image * dom);
     int (*alloc_p2m_list) (struct xc_dom_image * dom);
     int (*setup_pgtables) (struct xc_dom_image * dom);
@@ -325,6 +327,7 @@ int xc_dom_devicetree_mem(struct xc_dom_image *dom, const void *mem,
 int xc_dom_parse_image(struct xc_dom_image *dom);
 int xc_dom_set_arch_hooks(struct xc_dom_image *dom);
 int xc_dom_build_image(struct xc_dom_image *dom);
+int xc_dom_update_guest_p2m(struct xc_dom_image *dom);
 
 int xc_dom_boot_xen_init(struct xc_dom_image *dom, xc_interface *xch,
                          uint32_t domid);
@@ -334,10 +337,14 @@ void *xc_dom_boot_domU_map(struct xc_dom_image *dom, xen_pfn_t pfn,
 int xc_dom_boot_image(struct xc_dom_image *dom);
 int xc_dom_compat_check(struct xc_dom_image *dom);
 int xc_dom_gnttab_init(struct xc_dom_image *dom);
-int xc_dom_gnttab_seed(xc_interface *xch, uint32_t guest_domid,
-                       bool is_hvm,
-                       xen_pfn_t console_gfn,
-                       xen_pfn_t xenstore_gfn,
+int xc_dom_gnttab_hvm_seed(xc_interface *xch, uint32_t domid,
+                           xen_pfn_t console_gmfn,
+                           xen_pfn_t xenstore_gmfn,
+                           uint32_t console_domid,
+                           uint32_t xenstore_domid);
+int xc_dom_gnttab_seed(xc_interface *xch, uint32_t domid,
+                       xen_pfn_t console_gmfn,
+                       xen_pfn_t xenstore_gmfn,
                        uint32_t console_domid,
                        uint32_t xenstore_domid);
 bool xc_dom_translated(const struct xc_dom_image *dom);
@@ -428,12 +435,9 @@ static inline xen_pfn_t xc_dom_p2m(struct xc_dom_image *dom, xen_pfn_t pfn)
 {
     if ( xc_dom_translated(dom) )
         return pfn;
-
-    /* x86 PV only now. */
-    if ( pfn >= dom->total_pages )
+    if (pfn < dom->rambase_pfn || pfn >= dom->rambase_pfn + dom->total_pages)
         return INVALID_MFN;
-
-    return dom->pv_p2m[pfn];
+    return dom->p2m_host[pfn - dom->rambase_pfn];
 }
 
 #endif /* _XC_DOM_H */

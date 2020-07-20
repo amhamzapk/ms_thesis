@@ -52,8 +52,18 @@
     (XEN_GUEST_HANDLE_PARAM(type)) { _x };            \
 })
 
-/* Convert a XEN_GUEST_HANDLE to XEN_GUEST_HANDLE_PARAM */
+/* Cast a XEN_GUEST_HANDLE to XEN_GUEST_HANDLE_PARAM */
 #define guest_handle_to_param(hnd, type) ({                  \
+    /* type checking: make sure that the pointers inside     \
+     * XEN_GUEST_HANDLE and XEN_GUEST_HANDLE_PARAM are of    \
+     * the same type, then return hnd */                     \
+    (void)((typeof(&(hnd).p)) 0 ==                           \
+        (typeof(&((XEN_GUEST_HANDLE_PARAM(type)) {}).p)) 0); \
+    (hnd);                                                   \
+})
+
+/* Cast a XEN_GUEST_HANDLE_PARAM to XEN_GUEST_HANDLE */
+#define guest_handle_from_param(hnd, type) ({                \
     /* type checking: make sure that the pointers inside     \
      * XEN_GUEST_HANDLE and XEN_GUEST_HANDLE_PARAM are of    \
      * the same type, then return hnd */                     \
@@ -77,9 +87,7 @@
 #define copy_to_guest_offset(hnd, off, ptr, nr) ({      \
     const typeof(*(ptr)) *_s = (ptr);                   \
     char (*_d)[sizeof(*_s)] = (void *)(hnd).p;          \
-    /* Check that the handle is not for a const type */ \
-    void *__maybe_unused _t = (hnd).p;                  \
-    (void)((hnd).p == _s);                              \
+    ((void)((hnd).p == (ptr)));                         \
     raw_copy_to_guest(_d+(off), _s, sizeof(*_s)*(nr));  \
 })
 
@@ -102,7 +110,7 @@
 #define copy_field_to_guest(hnd, ptr, field) ({         \
     const typeof(&(ptr)->field) _s = &(ptr)->field;     \
     void *_d = &(hnd).p->field;                         \
-    (void)(&(hnd).p->field == _s);                      \
+    ((void)(&(hnd).p->field == &(ptr)->field));         \
     raw_copy_to_guest(_d, _s, sizeof(*_s));             \
 })
 
@@ -129,9 +137,7 @@
 #define __copy_to_guest_offset(hnd, off, ptr, nr) ({    \
     const typeof(*(ptr)) *_s = (ptr);                   \
     char (*_d)[sizeof(*_s)] = (void *)(hnd).p;          \
-    /* Check that the handle is not for a const type */ \
-    void *__maybe_unused _t = (hnd).p;                  \
-    (void)((hnd).p == _s);                              \
+    ((void)((hnd).p == (ptr)));                         \
     __raw_copy_to_guest(_d+(off), _s, sizeof(*_s)*(nr));\
 })
 
@@ -149,7 +155,7 @@
 #define __copy_field_to_guest(hnd, ptr, field) ({       \
     const typeof(&(ptr)->field) _s = &(ptr)->field;     \
     void *_d = &(hnd).p->field;                         \
-    (void)(&(hnd).p->field == _s);                      \
+    ((void)(&(hnd).p->field == &(ptr)->field));         \
     __raw_copy_to_guest(_d, _s, sizeof(*_s));           \
 })
 

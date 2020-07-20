@@ -2,9 +2,8 @@
 #include <xen/errno.h>
 #include <xen/init.h>
 #include <xen/lib.h>
-#include <asm/asm_defns.h>
-#include <asm/efibind.h>
 #include <asm/page.h>
+#include <asm/efibind.h>
 #include <efi/efidef.h>
 #include <efi/eficapsule.h>
 #include <efi/eficon.h>
@@ -35,11 +34,10 @@ void __init noreturn efi_multiboot2(EFI_HANDLE ImageHandle,
      * not be directly supported by C compiler.
      */
     asm volatile(
-    "    call *%[outstr]              \n"
+    "    call *%3                     \n"
     "0:  hlt                          \n"
     "    jmp  0b                      \n"
-       : "+c" (StdErr), "=d" (StdErr) ASM_CALL_CONSTRAINT
-       : "1" (err), [outstr] "rm" (StdErr->OutputString)
+       : "+c" (StdErr), "=d" (StdErr) : "1" (err), "rm" (StdErr->OutputString)
        : "rax", "r8", "r9", "r10", "r11", "memory");
 
     unreachable();

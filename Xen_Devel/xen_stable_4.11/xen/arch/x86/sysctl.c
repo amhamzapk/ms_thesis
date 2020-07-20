@@ -9,7 +9,6 @@
 #include <xen/types.h>
 #include <xen/lib.h>
 #include <xen/mm.h>
-#include <xen/nospec.h>
 #include <xen/guest_access.h>
 #include <xen/hypercall.h>
 #include <public/sysctl.h>
@@ -33,37 +32,6 @@
 #include <asm/psr.h>
 #include <asm/cpuid.h>
 
-const struct cpu_policy system_policies[6] = {
-    [ XEN_SYSCTL_cpu_policy_raw ] = {
-        &raw_cpuid_policy,
-        &raw_msr_policy,
-    },
-    [ XEN_SYSCTL_cpu_policy_host ] = {
-        &host_cpuid_policy,
-        &host_msr_policy,
-    },
-#ifdef CONFIG_PV
-    [ XEN_SYSCTL_cpu_policy_pv_max ] = {
-        &pv_max_cpuid_policy,
-        &pv_max_msr_policy,
-    },
-    [ XEN_SYSCTL_cpu_policy_pv_default ] = {
-        &pv_def_cpuid_policy,
-        &pv_def_msr_policy,
-    },
-#endif
-#ifdef CONFIG_HVM
-    [ XEN_SYSCTL_cpu_policy_hvm_max ] = {
-        &hvm_max_cpuid_policy,
-        &hvm_max_msr_policy,
-    },
-    [ XEN_SYSCTL_cpu_policy_hvm_default ] = {
-        &hvm_def_cpuid_policy,
-        &hvm_def_msr_policy,
-    },
-#endif
-};
-
 struct l3_cache_info {
     int ret;
     unsigned long size;
@@ -84,9 +52,12 @@ long cpu_up_helper(void *data)
     unsigned int cpu = (unsigned long)data;
     int ret = cpu_up(cpu);
 
-    /* Have one more go on EBUSY. */
     if ( ret == -EBUSY )
+    {
+        /* On EBUSY, flush RCU work and have one more go. */
+        rcu_barrier();
         ret = cpu_up(cpu);
+    }
 
     if ( !ret && !opt_smt &&
          cpu_data[cpu].compute_unit_id == INVALID_CUID &&
@@ -106,53 +77,12 @@ long cpu_down_helper(void *data)
 {
     int cpu = (unsigned long)data;
     int ret = cpu_down(cpu);
-    /* Have one more go on EBUSY. */
     if ( ret == -EBUSY )
-        ret = cpu_down(cpu);
-    return ret;
-}
-
-static long smt_up_down_helper(void *data)
-{
-    bool up = (bool)data;
-    unsigned int cpu, sibling_mask = boot_cpu_data.x86_num_siblings - 1;
-    int ret = 0;
-
-    opt_smt = up;
-
-    for_each_present_cpu ( cpu )
     {
-        /* Skip primary siblings (those whose thread id is 0). */
-        if ( !(x86_cpu_to_apicid[cpu] & sibling_mask) )
-            continue;
-
-        if ( !up && core_parking_remove(cpu) )
-            continue;
-
-        ret = up ? cpu_up_helper(_p(cpu))
-                 : cpu_down_helper(_p(cpu));
-
-        if ( ret && ret != -EEXIST )
-            break;
-
-        /*
-         * Ensure forward progress by only considering preemption when we have
-         * changed the state of one or more cpus.
-         */
-        if ( ret != -EEXIST && general_preempt_check() )
-        {
-            /* In tasklet context - can't create a contination. */
-            ret = -EBUSY;
-            break;
-        }
-
-        ret = 0; /* Avoid exiting with -EEXIST in the success case. */
+        /* On EBUSY, flush RCU work and have one more go. */
+        rcu_barrier();
+        ret = cpu_down(cpu);
     }
-
-    if ( !ret )
-        printk(XENLOG_INFO "SMT %s - online CPUs 0x%*pb\n",
-               up ? "enabled" : "disabled", CPUMASK_PR(&cpu_online_map));
-
     return ret;
 }
 
@@ -162,12 +92,8 @@ void arch_do_physinfo(struct xen_sysctl_physinfo *pi)
            min(sizeof(pi->hw_cap), sizeof(boot_cpu_data.x86_capability)));
     if ( hvm_enabled )
         pi->capabilities |= XEN_SYSCTL_PHYSCAP_hvm;
-    if ( IS_ENABLED(CONFIG_PV) )
-        pi->capabilities |= XEN_SYSCTL_PHYSCAP_pv;
-    if ( hvm_hap_supported() )
-        pi->capabilities |= XEN_SYSCTL_PHYSCAP_hap;
-    if ( IS_ENABLED(CONFIG_SHADOW_PAGING) )
-        pi->capabilities |= XEN_SYSCTL_PHYSCAP_shadow;
+    if ( iommu_enabled )
+        pi->capabilities |= XEN_SYSCTL_PHYSCAP_hvm_directio;
 }
 
 long arch_do_sysctl(
@@ -181,53 +107,27 @@ long arch_do_sysctl(
     case XEN_SYSCTL_cpu_hotplug:
     {
         unsigned int cpu = sysctl->u.cpu_hotplug.cpu;
-        unsigned int op  = sysctl->u.cpu_hotplug.op;
-        bool plug;
-        long (*fn)(void *);
-        void *hcpu;
 
-        switch ( op )
+        switch ( sysctl->u.cpu_hotplug.op )
         {
         case XEN_SYSCTL_CPU_HOTPLUG_ONLINE:
-            plug = true;
-            fn = cpu_up_helper;
-            hcpu = _p(cpu);
+            ret = xsm_resource_plug_core(XSM_HOOK);
+            if ( ret )
+                break;
+            ret = continue_hypercall_on_cpu(
+                0, cpu_up_helper, (void *)(unsigned long)cpu);
             break;
-
         case XEN_SYSCTL_CPU_HOTPLUG_OFFLINE:
-            plug = false;
-            fn = cpu_down_helper;
-            hcpu = _p(cpu);
-            break;
-
-        case XEN_SYSCTL_CPU_HOTPLUG_SMT_ENABLE:
-        case XEN_SYSCTL_CPU_HOTPLUG_SMT_DISABLE:
-            if ( !cpu_has_htt || boot_cpu_data.x86_num_siblings < 2 )
-            {
-                ret = -EOPNOTSUPP;
+            ret = xsm_resource_unplug_core(XSM_HOOK);
+            if ( ret )
                 break;
-            }
-            if ( sched_disable_smt_switching )
-            {
-                ret = -EBUSY;
-                break;
-            }
-            plug = op == XEN_SYSCTL_CPU_HOTPLUG_SMT_ENABLE;
-            fn = smt_up_down_helper;
-            hcpu = _p(plug);
+            ret = continue_hypercall_on_cpu(
+                0, cpu_down_helper, (void *)(unsigned long)cpu);
             break;
-
         default:
-            ret = -EOPNOTSUPP;
+            ret = -EINVAL;
             break;
         }
-
-        if ( !ret )
-            ret = plug ? xsm_resource_plug_core(XSM_HOOK)
-                       : xsm_resource_unplug_core(XSM_HOOK);
-
-        if ( !ret )
-            ret = continue_hypercall_on_cpu(0, fn, hcpu);
     }
     break;
 
@@ -357,15 +257,11 @@ long arch_do_sysctl(
 
     case XEN_SYSCTL_get_cpu_featureset:
     {
-        static const struct cpuid_policy *const policy_table[4] = {
+        static const struct cpuid_policy *const policy_table[] = {
             [XEN_SYSCTL_cpu_featureset_raw]  = &raw_cpuid_policy,
             [XEN_SYSCTL_cpu_featureset_host] = &host_cpuid_policy,
-#ifdef CONFIG_PV
-            [XEN_SYSCTL_cpu_featureset_pv]   = &pv_def_cpuid_policy,
-#endif
-#ifdef CONFIG_HVM
-            [XEN_SYSCTL_cpu_featureset_hvm]  = &hvm_def_cpuid_policy,
-#endif
+            [XEN_SYSCTL_cpu_featureset_pv]   = &pv_max_cpuid_policy,
+            [XEN_SYSCTL_cpu_featureset_hvm]  = &hvm_max_cpuid_policy,
         };
         const struct cpuid_policy *p = NULL;
         uint32_t featureset[FSCAPINTS];
@@ -387,17 +283,12 @@ long arch_do_sysctl(
 
         /* Look up requested featureset. */
         if ( sysctl->u.cpu_featureset.index < ARRAY_SIZE(policy_table) )
-        {
             p = policy_table[sysctl->u.cpu_featureset.index];
 
-            if ( !p )
-                ret = -EOPNOTSUPP;
-        }
-        else
-            /* Bad featureset index? */
+        /* Bad featureset index? */
+        if ( !p )
             ret = -EINVAL;
-
-        if ( !ret )
+        else
             cpuid_policy_to_featureset(p, featureset);
 
         /* Copy the requested featureset into place. */
@@ -414,59 +305,6 @@ long arch_do_sysctl(
         /* Inform the caller if there was more data to provide. */
         if ( !ret && nr < FSCAPINTS )
             ret = -ENOBUFS;
-
-        break;
-    }
-
-    case XEN_SYSCTL_get_cpu_policy:
-    {
-        const struct cpu_policy *policy;
-
-        /* Reserved field set, or bad policy index? */
-        if ( sysctl->u.cpu_policy._rsvd ||
-             sysctl->u.cpu_policy.index >= ARRAY_SIZE(system_policies) )
-        {
-            ret = -EINVAL;
-            break;
-        }
-        policy = &system_policies[
-            array_index_nospec(sysctl->u.cpu_policy.index,
-                               ARRAY_SIZE(system_policies))];
-
-        if ( !policy->cpuid || !policy->msr )
-        {
-            ret = -EOPNOTSUPP;
-            break;
-        }
-
-        /* Process the CPUID leaves. */
-        if ( guest_handle_is_null(sysctl->u.cpu_policy.cpuid_policy) )
-            sysctl->u.cpu_policy.nr_leaves = CPUID_MAX_SERIALISED_LEAVES;
-        else if ( (ret = x86_cpuid_copy_to_buffer(
-                       policy->cpuid,
-                       sysctl->u.cpu_policy.cpuid_policy,
-                       &sysctl->u.cpu_policy.nr_leaves)) )
-            break;
-
-        if ( __copy_field_to_guest(u_sysctl, sysctl,
-                                   u.cpu_policy.nr_leaves) )
-        {
-            ret = -EFAULT;
-            break;
-        }
-
-        /* Process the MSR entries. */
-        if ( guest_handle_is_null(sysctl->u.cpu_policy.msr_policy) )
-            sysctl->u.cpu_policy.nr_msrs = MSR_MAX_SERIALISED_ENTRIES;
-        else if ( (ret = x86_msr_copy_to_buffer(
-                       policy->msr,
-                       sysctl->u.cpu_policy.msr_policy,
-                       &sysctl->u.cpu_policy.nr_msrs)) )
-            break;
-
-        if ( __copy_field_to_guest(u_sysctl, sysctl,
-                                   u.cpu_policy.nr_msrs)  )
-            ret = -EFAULT;
 
         break;
     }

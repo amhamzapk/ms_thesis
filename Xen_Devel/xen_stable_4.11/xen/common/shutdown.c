@@ -1,13 +1,14 @@
 #include <xen/init.h>
 #include <xen/lib.h>
-#include <xen/param.h>
 #include <xen/sched.h>
 #include <xen/domain.h>
 #include <xen/delay.h>
 #include <xen/watchdog.h>
 #include <xen/shutdown.h>
 #include <xen/console.h>
+#ifdef CONFIG_KEXEC
 #include <xen/kexec.h>
+#endif
 #include <asm/debugger.h>
 #include <public/sched.h>
 
@@ -43,7 +44,9 @@ void hwdom_shutdown(u8 reason)
     case SHUTDOWN_crash:
         debugger_trap_immediate();
         printk("Hardware Dom%u crashed: ", hardware_domain->domain_id);
+#ifdef CONFIG_KEXEC
         kexec_crash();
+#endif
         maybe_reboot();
         break; /* not reached */
 
@@ -56,7 +59,9 @@ void hwdom_shutdown(u8 reason)
     case SHUTDOWN_watchdog:
         printk("Hardware Dom%u shutdown: watchdog rebooting machine\n",
                hardware_domain->domain_id);
+#ifdef CONFIG_KEXEC
         kexec_crash();
+#endif
         machine_restart(0);
         break; /* not reached */
 

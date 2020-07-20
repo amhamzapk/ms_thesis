@@ -32,6 +32,7 @@
 #include <asm/msr.h>
 #include <asm/io.h>
 #include <asm/processor.h>
+#include <asm/percpu.h>
 #include <asm/cpufeature.h>
 #include <acpi/acpi.h>
 #include <acpi/cpufreq/cpufreq.h>
@@ -51,6 +52,8 @@
 
 #define ARCH_CPU_FLAG_RESUME	1
 
+static struct cpufreq_driver powernow_cpufreq_driver;
+
 static void transition_pstate(void *pstate)
 {
     wrmsrl(MSR_PSTATE_CTRL, *(unsigned int *)pstate);
@@ -58,7 +61,7 @@ static void transition_pstate(void *pstate)
 
 static void update_cpb(void *data)
 {
-    struct cpufreq_policy *policy = data;
+    struct cpufreq_policy *policy = (struct cpufreq_policy *)data;
 
     if (policy->turbo != CPUFREQ_TURBO_UNSUPPORTED) {
         uint64_t msr_content;
@@ -212,7 +215,7 @@ static void feature_detect(void *info)
     if ( cpu_has_aperfmperf )
     {
         policy->aperf_mperf = 1;
-        cpufreq_driver.getavg = get_measured_perf;
+        powernow_cpufreq_driver.getavg = get_measured_perf;
     }
 
     edx = cpuid_edx(CPUID_FREQ_VOLT_CAPABILITIES);
@@ -344,8 +347,7 @@ static int powernow_cpufreq_cpu_exit(struct cpufreq_policy *policy)
     return 0;
 }
 
-static const struct cpufreq_driver __initconstrel powernow_cpufreq_driver = {
-    .name   = "powernow",
+static struct cpufreq_driver powernow_cpufreq_driver = {
     .verify = powernow_cpufreq_verify,
     .target = powernow_cpufreq_target,
     .init   = powernow_cpufreq_cpu_init,
@@ -359,7 +361,7 @@ unsigned int __init powernow_register_driver()
 
     for_each_online_cpu(i) {
         struct cpuinfo_x86 *c = &cpu_data[i];
-        if (!(c->x86_vendor & (X86_VENDOR_AMD | X86_VENDOR_HYGON)))
+        if (c->x86_vendor != X86_VENDOR_AMD)
             ret = -ENODEV;
         else
         {

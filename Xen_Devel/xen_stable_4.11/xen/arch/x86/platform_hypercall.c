@@ -27,11 +27,9 @@
 #include <public/platform.h>
 #include <acpi/cpufreq/processor_perf.h>
 #include <asm/edd.h>
-#include <asm/microcode.h>
 #include <asm/mtrr.h>
 #include <asm/io_apic.h>
 #include <asm/setup.h>
-#include "cpu/mcheck/mce.h"
 #include "cpu/mtrr/mtrr.h"
 #include <xsm/xsm.h>
 
@@ -96,9 +94,6 @@ void check_resource_access(struct resource_access *ra)
         switch ( entry->u.cmd )
         {
         case XEN_RESOURCE_OP_MSR_READ:
-            if ( ppin_msr && entry->idx == ppin_msr )
-                break;
-            /* fall through */
         case XEN_RESOURCE_OP_MSR_WRITE:
             if ( entry->idx >> 32 )
                 ret = -EINVAL;
@@ -285,7 +280,24 @@ ret_t do_platform_op(XEN_GUEST_HANDLE_PARAM(xen_platform_op_t) u_xenpf_op)
 
         guest_from_compat_handle(data, op->u.microcode.data);
 
-        ret = microcode_update(data, op->u.microcode.length);
+        /*
+         * alloc_vcpu() will access data which is modified during
+         * microcode update
+         */
+        while ( !spin_trylock(&vcpu_alloc_lock) )
+        {
+            if ( hypercall_preempt_check() )
+            {
+                ret = hypercall_create_continuation(
+                    __HYPERVISOR_platform_op, "h", u_xenpf_op);
+                goto out;
+            }
+        }
+
+        ret = microcode_update(
+                guest_handle_to_param(data, const_void),
+                op->u.microcode.length);
+        spin_unlock(&vcpu_alloc_lock);
     }
     break;
 
@@ -529,7 +541,9 @@ ret_t do_platform_op(XEN_GUEST_HANDLE_PARAM(xen_platform_op_t) u_xenpf_op)
             XEN_GUEST_HANDLE(uint32) pdc;
 
             guest_from_compat_handle(pdc, op->u.set_pminfo.u.pdc);
-            ret = acpi_set_pdc_bits(op->u.set_pminfo.id, pdc);
+            ret = acpi_set_pdc_bits(
+                    op->u.set_pminfo.id,
+                    guest_handle_to_param(pdc, uint32));
         }
         break;
 

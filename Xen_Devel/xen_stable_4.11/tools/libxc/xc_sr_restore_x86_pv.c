@@ -4,9 +4,9 @@
 
 static xen_pfn_t pfn_to_mfn(const struct xc_sr_context *ctx, xen_pfn_t pfn)
 {
-    assert(pfn <= ctx->x86.pv.max_pfn);
+    assert(pfn <= ctx->x86_pv.max_pfn);
 
-    return xc_pfn_to_mfn(pfn, ctx->x86.pv.p2m, ctx->x86.pv.width);
+    return xc_pfn_to_mfn(pfn, ctx->x86_pv.p2m, ctx->x86_pv.width);
 }
 
 /*
@@ -18,8 +18,8 @@ static xen_pfn_t pfn_to_mfn(const struct xc_sr_context *ctx, xen_pfn_t pfn)
 static int expand_p2m(struct xc_sr_context *ctx, unsigned long max_pfn)
 {
     xc_interface *xch = ctx->xch;
-    unsigned long old_max = ctx->x86.pv.max_pfn, i;
-    unsigned int fpp = PAGE_SIZE / ctx->x86.pv.width;
+    unsigned long old_max = ctx->x86_pv.max_pfn, i;
+    unsigned int fpp = PAGE_SIZE / ctx->x86_pv.width;
     unsigned long end_frame = (max_pfn / fpp) + 1;
     unsigned long old_end_frame = (old_max / fpp) + 1;
     xen_pfn_t *p2m = NULL, *p2m_pfns = NULL;
@@ -28,35 +28,35 @@ static int expand_p2m(struct xc_sr_context *ctx, unsigned long max_pfn)
 
     assert(max_pfn > old_max);
 
-    p2msz = (max_pfn + 1) * ctx->x86.pv.width;
-    p2m = realloc(ctx->x86.pv.p2m, p2msz);
+    p2msz = (max_pfn + 1) * ctx->x86_pv.width;
+    p2m = realloc(ctx->x86_pv.p2m, p2msz);
     if ( !p2m )
     {
         ERROR("Failed to (re)alloc %zu bytes for p2m", p2msz);
         return -1;
     }
-    ctx->x86.pv.p2m = p2m;
+    ctx->x86_pv.p2m = p2m;
 
     pfn_typesz = (max_pfn + 1) * sizeof(*pfn_types);
-    pfn_types = realloc(ctx->x86.pv.restore.pfn_types, pfn_typesz);
+    pfn_types = realloc(ctx->x86_pv.restore.pfn_types, pfn_typesz);
     if ( !pfn_types )
     {
         ERROR("Failed to (re)alloc %zu bytes for pfn_types", pfn_typesz);
         return -1;
     }
-    ctx->x86.pv.restore.pfn_types = pfn_types;
+    ctx->x86_pv.restore.pfn_types = pfn_types;
 
     p2m_pfnsz = (end_frame + 1) * sizeof(*p2m_pfns);
-    p2m_pfns = realloc(ctx->x86.pv.p2m_pfns, p2m_pfnsz);
+    p2m_pfns = realloc(ctx->x86_pv.p2m_pfns, p2m_pfnsz);
     if ( !p2m_pfns )
     {
         ERROR("Failed to (re)alloc %zu bytes for p2m frame list", p2m_pfnsz);
         return -1;
     }
-    ctx->x86.pv.p2m_frames = end_frame;
-    ctx->x86.pv.p2m_pfns = p2m_pfns;
+    ctx->x86_pv.p2m_frames = end_frame;
+    ctx->x86_pv.p2m_pfns = p2m_pfns;
 
-    ctx->x86.pv.max_pfn = max_pfn;
+    ctx->x86_pv.max_pfn = max_pfn;
     for ( i = (old_max ? old_max + 1 : 0); i <= max_pfn; ++i )
     {
         ctx->restore.ops.set_gfn(ctx, i, INVALID_MFN);
@@ -64,7 +64,7 @@ static int expand_p2m(struct xc_sr_context *ctx, unsigned long max_pfn)
     }
 
     for ( i = (old_end_frame ? old_end_frame + 1 : 0); i <= end_frame; ++i )
-        ctx->x86.pv.p2m_pfns[i] = INVALID_MFN;
+        ctx->x86_pv.p2m_pfns[i] = INVALID_MFN;
 
     DPRINTF("Changed max_pfn from %#lx to %#lx", old_max, max_pfn);
     return 0;
@@ -79,13 +79,13 @@ static int pin_pagetables(struct xc_sr_context *ctx)
     unsigned long i, nr_pins;
     struct mmuext_op pin[MAX_PIN_BATCH];
 
-    for ( i = nr_pins = 0; i <= ctx->x86.pv.max_pfn; ++i )
+    for ( i = nr_pins = 0; i <= ctx->x86_pv.max_pfn; ++i )
     {
-        if ( (ctx->x86.pv.restore.pfn_types[i] &
+        if ( (ctx->x86_pv.restore.pfn_types[i] &
               XEN_DOMCTL_PFINFO_LPINTAB) == 0 )
             continue;
 
-        switch ( (ctx->x86.pv.restore.pfn_types[i] &
+        switch ( (ctx->x86_pv.restore.pfn_types[i] &
                   XEN_DOMCTL_PFINFO_LTABTYPE_MASK) )
         {
         case XEN_DOMCTL_PFINFO_L1TAB:
@@ -138,18 +138,17 @@ static int process_start_info(struct xc_sr_context *ctx,
     start_info_any_t *guest_start_info = NULL;
     int rc = -1;
 
-    pfn = GET_FIELD(vcpu, user_regs.edx, ctx->x86.pv.width);
+    pfn = GET_FIELD(vcpu, user_regs.edx, ctx->x86_pv.width);
 
-    if ( pfn > ctx->x86.pv.max_pfn )
+    if ( pfn > ctx->x86_pv.max_pfn )
     {
         ERROR("Start Info pfn %#lx out of range", pfn);
         goto err;
     }
-
-    if ( ctx->x86.pv.restore.pfn_types[pfn] != XEN_DOMCTL_PFINFO_NOTAB )
+    else if ( ctx->x86_pv.restore.pfn_types[pfn] != XEN_DOMCTL_PFINFO_NOTAB )
     {
         ERROR("Start Info pfn %#lx has bad type %u", pfn,
-              (ctx->x86.pv.restore.pfn_types[pfn] >>
+              (ctx->x86_pv.restore.pfn_types[pfn] >>
                XEN_DOMCTL_PFINFO_LTAB_SHIFT));
         goto err;
     }
@@ -162,7 +161,7 @@ static int process_start_info(struct xc_sr_context *ctx,
         goto err;
     }
 
-    SET_FIELD(vcpu, user_regs.edx, mfn, ctx->x86.pv.width);
+    SET_FIELD(vcpu, user_regs.edx, mfn, ctx->x86_pv.width);
     guest_start_info = xc_map_foreign_range(
         xch, ctx->domid, PAGE_SIZE, PROT_READ | PROT_WRITE, mfn);
     if ( !guest_start_info )
@@ -172,8 +171,8 @@ static int process_start_info(struct xc_sr_context *ctx,
     }
 
     /* Deal with xenstore stuff */
-    pfn = GET_FIELD(guest_start_info, store_mfn, ctx->x86.pv.width);
-    if ( pfn > ctx->x86.pv.max_pfn )
+    pfn = GET_FIELD(guest_start_info, store_mfn, ctx->x86_pv.width);
+    if ( pfn > ctx->x86_pv.max_pfn )
     {
         ERROR("XenStore pfn %#lx out of range", pfn);
         goto err;
@@ -188,13 +187,13 @@ static int process_start_info(struct xc_sr_context *ctx,
     }
 
     ctx->restore.xenstore_gfn = mfn;
-    SET_FIELD(guest_start_info, store_mfn, mfn, ctx->x86.pv.width);
+    SET_FIELD(guest_start_info, store_mfn, mfn, ctx->x86_pv.width);
     SET_FIELD(guest_start_info, store_evtchn,
-              ctx->restore.xenstore_evtchn, ctx->x86.pv.width);
+              ctx->restore.xenstore_evtchn, ctx->x86_pv.width);
 
     /* Deal with console stuff */
-    pfn = GET_FIELD(guest_start_info, console.domU.mfn, ctx->x86.pv.width);
-    if ( pfn > ctx->x86.pv.max_pfn )
+    pfn = GET_FIELD(guest_start_info, console.domU.mfn, ctx->x86_pv.width);
+    if ( pfn > ctx->x86_pv.max_pfn )
     {
         ERROR("Console pfn %#lx out of range", pfn);
         goto err;
@@ -209,20 +208,20 @@ static int process_start_info(struct xc_sr_context *ctx,
     }
 
     ctx->restore.console_gfn = mfn;
-    SET_FIELD(guest_start_info, console.domU.mfn, mfn, ctx->x86.pv.width);
+    SET_FIELD(guest_start_info, console.domU.mfn, mfn, ctx->x86_pv.width);
     SET_FIELD(guest_start_info, console.domU.evtchn,
-              ctx->restore.console_evtchn, ctx->x86.pv.width);
+              ctx->restore.console_evtchn, ctx->x86_pv.width);
 
     /* Set other information */
     SET_FIELD(guest_start_info, nr_pages,
-              ctx->x86.pv.max_pfn + 1, ctx->x86.pv.width);
+              ctx->x86_pv.max_pfn + 1, ctx->x86_pv.width);
     SET_FIELD(guest_start_info, shared_info,
-              ctx->dominfo.shared_info_frame << PAGE_SHIFT, ctx->x86.pv.width);
-    SET_FIELD(guest_start_info, flags, 0, ctx->x86.pv.width);
+              ctx->dominfo.shared_info_frame << PAGE_SHIFT, ctx->x86_pv.width);
+    SET_FIELD(guest_start_info, flags, 0, ctx->x86_pv.width);
 
     rc = 0;
 
- err:
+err:
     if ( guest_start_info )
         munmap(guest_start_info, PAGE_SIZE);
 
@@ -236,25 +235,28 @@ static int process_vcpu_basic(struct xc_sr_context *ctx,
                               unsigned int vcpuid)
 {
     xc_interface *xch = ctx->xch;
-    vcpu_guest_context_any_t *vcpu = ctx->x86.pv.restore.vcpus[vcpuid].basic.ptr;
+    vcpu_guest_context_any_t vcpu;
     xen_pfn_t pfn, mfn;
-    unsigned int i, gdt_count;
+    unsigned i, gdt_count;
     int rc = -1;
+
+    memcpy(&vcpu, ctx->x86_pv.restore.vcpus[vcpuid].basic,
+           ctx->x86_pv.restore.vcpus[vcpuid].basicsz);
 
     /* Vcpu 0 is special: Convert the suspend record to an mfn. */
     if ( vcpuid == 0 )
     {
-        rc = process_start_info(ctx, vcpu);
+        rc = process_start_info(ctx, &vcpu);
         if ( rc )
             return rc;
         rc = -1;
     }
 
-    SET_FIELD(vcpu, flags,
-              GET_FIELD(vcpu, flags, ctx->x86.pv.width) | VGCF_online,
-              ctx->x86.pv.width);
+    SET_FIELD(&vcpu, flags,
+              GET_FIELD(&vcpu, flags, ctx->x86_pv.width) | VGCF_online,
+              ctx->x86_pv.width);
 
-    gdt_count = GET_FIELD(vcpu, gdt_ents, ctx->x86.pv.width);
+    gdt_count = GET_FIELD(&vcpu, gdt_ents, ctx->x86_pv.width);
     if ( gdt_count > FIRST_RESERVED_GDT_ENTRY )
     {
         ERROR("GDT entry count (%u) out of range (max %u)",
@@ -267,17 +269,17 @@ static int process_vcpu_basic(struct xc_sr_context *ctx,
     /* Convert GDT frames to mfns. */
     for ( i = 0; i < gdt_count; ++i )
     {
-        pfn = GET_FIELD(vcpu, gdt_frames[i], ctx->x86.pv.width);
-        if ( pfn > ctx->x86.pv.max_pfn )
+        pfn = GET_FIELD(&vcpu, gdt_frames[i], ctx->x86_pv.width);
+        if ( pfn > ctx->x86_pv.max_pfn )
         {
             ERROR("GDT frame %u (pfn %#lx) out of range", i, pfn);
             goto err;
         }
-
-        if ( (ctx->x86.pv.restore.pfn_types[pfn] != XEN_DOMCTL_PFINFO_NOTAB) )
+        else if ( (ctx->x86_pv.restore.pfn_types[pfn] !=
+                   XEN_DOMCTL_PFINFO_NOTAB) )
         {
             ERROR("GDT frame %u (pfn %#lx) has bad type %u", i, pfn,
-                  (ctx->x86.pv.restore.pfn_types[pfn] >>
+                  (ctx->x86_pv.restore.pfn_types[pfn] >>
                    XEN_DOMCTL_PFINFO_LTAB_SHIFT));
             goto err;
         }
@@ -290,25 +292,25 @@ static int process_vcpu_basic(struct xc_sr_context *ctx,
             goto err;
         }
 
-        SET_FIELD(vcpu, gdt_frames[i], mfn, ctx->x86.pv.width);
+        SET_FIELD(&vcpu, gdt_frames[i], mfn, ctx->x86_pv.width);
     }
 
     /* Convert CR3 to an mfn. */
-    pfn = cr3_to_mfn(ctx, GET_FIELD(vcpu, ctrlreg[3], ctx->x86.pv.width));
-    if ( pfn > ctx->x86.pv.max_pfn )
+    pfn = cr3_to_mfn(ctx, GET_FIELD(&vcpu, ctrlreg[3], ctx->x86_pv.width));
+    if ( pfn > ctx->x86_pv.max_pfn )
     {
         ERROR("cr3 (pfn %#lx) out of range", pfn);
         goto err;
     }
-
-    if ( (ctx->x86.pv.restore.pfn_types[pfn] &
-          XEN_DOMCTL_PFINFO_LTABTYPE_MASK) !=
-         (((xen_pfn_t)ctx->x86.pv.levels) << XEN_DOMCTL_PFINFO_LTAB_SHIFT) )
+    else if ( (ctx->x86_pv.restore.pfn_types[pfn] &
+                XEN_DOMCTL_PFINFO_LTABTYPE_MASK) !=
+              (((xen_pfn_t)ctx->x86_pv.levels) <<
+               XEN_DOMCTL_PFINFO_LTAB_SHIFT) )
     {
         ERROR("cr3 (pfn %#lx) has bad type %u, expected %u", pfn,
-              (ctx->x86.pv.restore.pfn_types[pfn] >>
+              (ctx->x86_pv.restore.pfn_types[pfn] >>
                XEN_DOMCTL_PFINFO_LTAB_SHIFT),
-              ctx->x86.pv.levels);
+              ctx->x86_pv.levels);
         goto err;
     }
 
@@ -320,27 +322,27 @@ static int process_vcpu_basic(struct xc_sr_context *ctx,
         goto err;
     }
 
-    SET_FIELD(vcpu, ctrlreg[3], mfn_to_cr3(ctx, mfn), ctx->x86.pv.width);
+    SET_FIELD(&vcpu, ctrlreg[3], mfn_to_cr3(ctx, mfn), ctx->x86_pv.width);
 
     /* 64bit guests: Convert CR1 (guest pagetables) to mfn. */
-    if ( ctx->x86.pv.levels == 4 && (vcpu->x64.ctrlreg[1] & 1) )
+    if ( ctx->x86_pv.levels == 4 && (vcpu.x64.ctrlreg[1] & 1) )
     {
-        pfn = vcpu->x64.ctrlreg[1] >> PAGE_SHIFT;
+        pfn = vcpu.x64.ctrlreg[1] >> PAGE_SHIFT;
 
-        if ( pfn > ctx->x86.pv.max_pfn )
+        if ( pfn > ctx->x86_pv.max_pfn )
         {
             ERROR("cr1 (pfn %#lx) out of range", pfn);
             goto err;
         }
-
-        if ( (ctx->x86.pv.restore.pfn_types[pfn] &
-              XEN_DOMCTL_PFINFO_LTABTYPE_MASK) !=
-             (((xen_pfn_t)ctx->x86.pv.levels) << XEN_DOMCTL_PFINFO_LTAB_SHIFT) )
+        else if ( (ctx->x86_pv.restore.pfn_types[pfn] &
+                   XEN_DOMCTL_PFINFO_LTABTYPE_MASK) !=
+                  (((xen_pfn_t)ctx->x86_pv.levels) <<
+                   XEN_DOMCTL_PFINFO_LTAB_SHIFT) )
         {
             ERROR("cr1 (pfn %#lx) has bad type %u, expected %u", pfn,
-                  (ctx->x86.pv.restore.pfn_types[pfn] >>
+                  (ctx->x86_pv.restore.pfn_types[pfn] >>
                    XEN_DOMCTL_PFINFO_LTAB_SHIFT),
-                  ctx->x86.pv.levels);
+                  ctx->x86_pv.levels);
             goto err;
         }
 
@@ -352,10 +354,10 @@ static int process_vcpu_basic(struct xc_sr_context *ctx,
             goto err;
         }
 
-        vcpu->x64.ctrlreg[1] = (uint64_t)mfn << PAGE_SHIFT;
+        vcpu.x64.ctrlreg[1] = (uint64_t)mfn << PAGE_SHIFT;
     }
 
-    if ( xc_vcpu_setcontext(xch, ctx->domid, vcpuid, vcpu) )
+    if ( xc_vcpu_setcontext(xch, ctx->domid, vcpuid, &vcpu) )
     {
         PERROR("Failed to set vcpu%u's basic info", vcpuid);
         goto err;
@@ -375,12 +377,12 @@ static int process_vcpu_extended(struct xc_sr_context *ctx,
 {
     xc_interface *xch = ctx->xch;
     struct xc_sr_x86_pv_restore_vcpu *vcpu =
-        &ctx->x86.pv.restore.vcpus[vcpuid];
+        &ctx->x86_pv.restore.vcpus[vcpuid];
     DECLARE_DOMCTL;
 
     domctl.cmd = XEN_DOMCTL_set_ext_vcpucontext;
     domctl.domain = ctx->domid;
-    memcpy(&domctl.u.ext_vcpucontext, vcpu->extd.ptr, vcpu->extd.size);
+    memcpy(&domctl.u.ext_vcpucontext, vcpu->extd, vcpu->extdsz);
 
     if ( xc_domctl(xch, &domctl) != 0 )
     {
@@ -399,26 +401,26 @@ static int process_vcpu_xsave(struct xc_sr_context *ctx,
 {
     xc_interface *xch = ctx->xch;
     struct xc_sr_x86_pv_restore_vcpu *vcpu =
-        &ctx->x86.pv.restore.vcpus[vcpuid];
+        &ctx->x86_pv.restore.vcpus[vcpuid];
     int rc;
     DECLARE_DOMCTL;
     DECLARE_HYPERCALL_BUFFER(void, buffer);
 
-    buffer = xc_hypercall_buffer_alloc(xch, buffer, vcpu->xsave.size);
+    buffer = xc_hypercall_buffer_alloc(xch, buffer, vcpu->xsavesz);
     if ( !buffer )
     {
         ERROR("Unable to allocate %zu bytes for xsave hypercall buffer",
-              vcpu->xsave.size);
+              vcpu->xsavesz);
         return -1;
     }
 
     domctl.cmd = XEN_DOMCTL_setvcpuextstate;
     domctl.domain = ctx->domid;
     domctl.u.vcpuextstate.vcpu = vcpuid;
-    domctl.u.vcpuextstate.size = vcpu->xsave.size;
+    domctl.u.vcpuextstate.size = vcpu->xsavesz;
     set_xen_guest_handle(domctl.u.vcpuextstate.buffer, buffer);
 
-    memcpy(buffer, vcpu->xsave.ptr, vcpu->xsave.size);
+    memcpy(buffer, vcpu->xsave, vcpu->xsavesz);
 
     rc = xc_domctl(xch, &domctl);
     if ( rc )
@@ -437,26 +439,26 @@ static int process_vcpu_msrs(struct xc_sr_context *ctx,
 {
     xc_interface *xch = ctx->xch;
     struct xc_sr_x86_pv_restore_vcpu *vcpu =
-        &ctx->x86.pv.restore.vcpus[vcpuid];
+        &ctx->x86_pv.restore.vcpus[vcpuid];
     int rc;
     DECLARE_DOMCTL;
     DECLARE_HYPERCALL_BUFFER(void, buffer);
 
-    buffer = xc_hypercall_buffer_alloc(xch, buffer, vcpu->msr.size);
+    buffer = xc_hypercall_buffer_alloc(xch, buffer, vcpu->msrsz);
     if ( !buffer )
     {
         ERROR("Unable to allocate %zu bytes for msr hypercall buffer",
-              vcpu->msr.size);
+              vcpu->msrsz);
         return -1;
     }
 
     domctl.cmd = XEN_DOMCTL_set_vcpu_msrs;
     domctl.domain = ctx->domid;
     domctl.u.vcpu_msrs.vcpu = vcpuid;
-    domctl.u.vcpu_msrs.msr_count = vcpu->msr.size / sizeof(xen_domctl_vcpu_msr_t);
+    domctl.u.vcpu_msrs.msr_count = vcpu->msrsz / sizeof(xen_domctl_vcpu_msr_t);
     set_xen_guest_handle(domctl.u.vcpu_msrs.msrs, buffer);
 
-    memcpy(buffer, vcpu->msr.ptr, vcpu->msr.size);
+    memcpy(buffer, vcpu->msr, vcpu->msrsz);
 
     rc = xc_domctl(xch, &domctl);
     if ( rc )
@@ -474,14 +476,14 @@ static int update_vcpu_context(struct xc_sr_context *ctx)
 {
     xc_interface *xch = ctx->xch;
     struct xc_sr_x86_pv_restore_vcpu *vcpu;
-    unsigned int i;
+    unsigned i;
     int rc = 0;
 
-    for ( i = 0; i < ctx->x86.pv.restore.nr_vcpus; ++i )
+    for ( i = 0; i < ctx->x86_pv.restore.nr_vcpus; ++i )
     {
-        vcpu = &ctx->x86.pv.restore.vcpus[i];
+        vcpu = &ctx->x86_pv.restore.vcpus[i];
 
-        if ( vcpu->basic.ptr )
+        if ( vcpu->basic )
         {
             rc = process_vcpu_basic(ctx, i);
             if ( rc )
@@ -493,21 +495,21 @@ static int update_vcpu_context(struct xc_sr_context *ctx)
             return -1;
         }
 
-        if ( vcpu->extd.ptr )
+        if ( vcpu->extd )
         {
             rc = process_vcpu_extended(ctx, i);
             if ( rc )
                 return rc;
         }
 
-        if ( vcpu->xsave.ptr )
+        if ( vcpu->xsave )
         {
             rc = process_vcpu_xsave(ctx, i);
             if ( rc )
                 return rc;
         }
 
-        if ( vcpu->msr.ptr )
+        if ( vcpu->msr )
         {
             rc = process_vcpu_msrs(ctx, i);
             if ( rc )
@@ -527,24 +529,24 @@ static int update_guest_p2m(struct xc_sr_context *ctx)
 {
     xc_interface *xch = ctx->xch;
     xen_pfn_t mfn, pfn, *guest_p2m = NULL;
-    unsigned int i;
+    unsigned i;
     int rc = -1;
 
-    for ( i = 0; i < ctx->x86.pv.p2m_frames; ++i )
+    for ( i = 0; i < ctx->x86_pv.p2m_frames; ++i )
     {
-        pfn = ctx->x86.pv.p2m_pfns[i];
+        pfn = ctx->x86_pv.p2m_pfns[i];
 
-        if ( pfn > ctx->x86.pv.max_pfn )
+        if ( pfn > ctx->x86_pv.max_pfn )
         {
             ERROR("pfn (%#lx) for p2m_frame_list[%u] out of range",
                   pfn, i);
             goto err;
         }
-
-        if ( (ctx->x86.pv.restore.pfn_types[pfn] != XEN_DOMCTL_PFINFO_NOTAB) )
+        else if ( (ctx->x86_pv.restore.pfn_types[pfn] !=
+                   XEN_DOMCTL_PFINFO_NOTAB) )
         {
             ERROR("pfn (%#lx) for p2m_frame_list[%u] has bad type %u", pfn, i,
-                  (ctx->x86.pv.restore.pfn_types[pfn] >>
+                  (ctx->x86_pv.restore.pfn_types[pfn] >>
                    XEN_DOMCTL_PFINFO_LTAB_SHIFT));
             goto err;
         }
@@ -557,25 +559,24 @@ static int update_guest_p2m(struct xc_sr_context *ctx)
             goto err;
         }
 
-        ctx->x86.pv.p2m_pfns[i] = mfn;
+        ctx->x86_pv.p2m_pfns[i] = mfn;
     }
 
     guest_p2m = xc_map_foreign_pages(xch, ctx->domid, PROT_WRITE,
-                                     ctx->x86.pv.p2m_pfns,
-                                     ctx->x86.pv.p2m_frames);
+                                     ctx->x86_pv.p2m_pfns,
+                                     ctx->x86_pv.p2m_frames );
     if ( !guest_p2m )
     {
         PERROR("Failed to map p2m frames");
         goto err;
     }
 
-    memcpy(guest_p2m, ctx->x86.pv.p2m,
-           (ctx->x86.pv.max_pfn + 1) * ctx->x86.pv.width);
+    memcpy(guest_p2m, ctx->x86_pv.p2m,
+           (ctx->x86_pv.max_pfn + 1) * ctx->x86_pv.width);
     rc = 0;
-
  err:
     if ( guest_p2m )
-        munmap(guest_p2m, ctx->x86.pv.p2m_frames * PAGE_SIZE);
+        munmap(guest_p2m, ctx->x86_pv.p2m_frames * PAGE_SIZE);
 
     return rc;
 }
@@ -604,7 +605,7 @@ static int handle_x86_pv_info(struct xc_sr_context *ctx,
     xc_interface *xch = ctx->xch;
     struct xc_sr_rec_x86_pv_info *info = rec->data;
 
-    if ( ctx->x86.pv.restore.seen_pv_info )
+    if ( ctx->x86_pv.restore.seen_pv_info )
     {
         ERROR("Already received X86_PV_INFO record");
         return -1;
@@ -628,7 +629,7 @@ static int handle_x86_pv_info(struct xc_sr_context *ctx,
      * PV domains default to native width.  For an incomming compat domain, we
      * will typically be the first entity to inform Xen.
      */
-    if ( info->guest_width != ctx->x86.pv.width )
+    if ( info->guest_width != ctx->x86_pv.width )
     {
         struct xen_domctl domctl = {
             .domain = ctx->domid,
@@ -654,16 +655,16 @@ static int handle_x86_pv_info(struct xc_sr_context *ctx,
     }
 
     /* Sanity check (possibly new) domain settings. */
-    if ( (info->guest_width != ctx->x86.pv.width) ||
-         (info->pt_levels   != ctx->x86.pv.levels) )
+    if ( (info->guest_width != ctx->x86_pv.width) ||
+         (info->pt_levels   != ctx->x86_pv.levels) )
     {
         ERROR("X86_PV_INFO width/pt_levels settings %u/%u mismatch with d%d %u/%u",
               info->guest_width, info->pt_levels, ctx->domid,
-              ctx->x86.pv.width, ctx->x86.pv.levels);
+              ctx->x86_pv.width, ctx->x86_pv.levels);
         return -1;
     }
 
-    ctx->x86.pv.restore.seen_pv_info = true;
+    ctx->x86_pv.restore.seen_pv_info = true;
     return 0;
 }
 
@@ -676,27 +677,10 @@ static int handle_x86_pv_p2m_frames(struct xc_sr_context *ctx,
 {
     xc_interface *xch = ctx->xch;
     struct xc_sr_rec_x86_pv_p2m_frames *data = rec->data;
-    unsigned int start, end, x, fpp = PAGE_SIZE / ctx->x86.pv.width;
+    unsigned start, end, x, fpp = PAGE_SIZE / ctx->x86_pv.width;
     int rc;
 
-    /* v2 compat.  Infer the position of STATIC_DATA_END. */
-    if ( ctx->restore.format_version < 3 && !ctx->restore.seen_static_data_end )
-    {
-        rc = handle_static_data_end(ctx);
-        if ( rc )
-        {
-            ERROR("Inferred STATIC_DATA_END record failed");
-            return rc;
-        }
-    }
-
-    if ( !ctx->restore.seen_static_data_end )
-    {
-        ERROR("No STATIC_DATA_END seen");
-        return -1;
-    }
-
-    if ( !ctx->x86.pv.restore.seen_pv_info )
+    if ( !ctx->x86_pv.restore.seen_pv_info )
     {
         ERROR("Not yet received X86_PV_INFO record");
         return -1;
@@ -708,8 +692,7 @@ static int handle_x86_pv_p2m_frames(struct xc_sr_context *ctx,
               rec->length, sizeof(*data) + sizeof(uint64_t));
         return -1;
     }
-
-    if ( data->start_pfn > data->end_pfn )
+    else if ( data->start_pfn > data->end_pfn )
     {
         ERROR("End pfn in stream (%#x) exceeds Start (%#x)",
               data->end_pfn, data->start_pfn);
@@ -728,7 +711,7 @@ static int handle_x86_pv_p2m_frames(struct xc_sr_context *ctx,
         return -1;
     }
 
-    if ( data->end_pfn > ctx->x86.pv.max_pfn )
+    if ( data->end_pfn > ctx->x86_pv.max_pfn )
     {
         rc = expand_p2m(ctx, data->end_pfn);
         if ( rc )
@@ -736,7 +719,7 @@ static int handle_x86_pv_p2m_frames(struct xc_sr_context *ctx,
     }
 
     for ( x = 0; x < (end - start); ++x )
-        ctx->x86.pv.p2m_pfns[start + x] = data->p2m_pfns[x];
+        ctx->x86_pv.p2m_pfns[start + x] = data->p2m_pfns[x];
 
     return 0;
 }
@@ -755,7 +738,7 @@ static int handle_x86_pv_vcpu_blob(struct xc_sr_context *ctx,
     struct xc_sr_x86_pv_restore_vcpu *vcpu;
     const char *rec_name;
     size_t blobsz;
-    struct xc_sr_blob *blob = NULL;
+    void *blob;
     int rc = -1;
 
     switch ( rec->type )
@@ -805,21 +788,21 @@ static int handle_x86_pv_vcpu_blob(struct xc_sr_context *ctx,
     }
 
     /* Check that the vcpu id is within range. */
-    if ( vhdr->vcpu_id >= ctx->x86.pv.restore.nr_vcpus )
+    if ( vhdr->vcpu_id >= ctx->x86_pv.restore.nr_vcpus )
     {
         ERROR("%s record vcpu_id (%u) exceeds domain max (%u)",
-              rec_name, vhdr->vcpu_id, ctx->x86.pv.restore.nr_vcpus - 1);
+              rec_name, vhdr->vcpu_id, ctx->x86_pv.restore.nr_vcpus - 1);
         goto out;
     }
 
-    vcpu = &ctx->x86.pv.restore.vcpus[vhdr->vcpu_id];
+    vcpu = &ctx->x86_pv.restore.vcpus[vhdr->vcpu_id];
 
     /* Further per-record checks, where possible. */
     switch ( rec->type )
     {
     case REC_TYPE_X86_PV_VCPU_BASIC:
     {
-        size_t vcpusz = ctx->x86.pv.width == 8 ?
+        size_t vcpusz = ctx->x86_pv.width == 8 ?
             sizeof(vcpu_guest_context_x86_64_t) :
             sizeof(vcpu_guest_context_x86_32_t);
 
@@ -829,7 +812,6 @@ static int handle_x86_pv_vcpu_blob(struct xc_sr_context *ctx,
                   rec_name, sizeof(*vhdr) + vcpusz, rec->length);
             goto out;
         }
-        blob = &vcpu->basic;
         break;
     }
 
@@ -840,7 +822,6 @@ static int handle_x86_pv_vcpu_blob(struct xc_sr_context *ctx,
                   rec_name, sizeof(*vhdr) + 128, rec->length);
             goto out;
         }
-        blob = &vcpu->extd;
         break;
 
     case REC_TYPE_X86_PV_VCPU_XSAVE:
@@ -850,7 +831,6 @@ static int handle_x86_pv_vcpu_blob(struct xc_sr_context *ctx,
                   rec_name, sizeof(*vhdr) + 16, rec->length);
             goto out;
         }
-        blob = &vcpu->xsave;
         break;
 
     case REC_TYPE_X86_PV_VCPU_MSRS:
@@ -860,14 +840,34 @@ static int handle_x86_pv_vcpu_blob(struct xc_sr_context *ctx,
                   rec_name, blobsz, sizeof(xen_domctl_vcpu_msr_t));
             goto out;
         }
-        blob = &vcpu->msr;
         break;
     }
 
-    rc = update_blob(blob, vhdr->context, blobsz);
-    if ( rc )
+    /* Allocate memory. */
+    blob = malloc(blobsz);
+    if ( !blob )
+    {
         ERROR("Unable to allocate %zu bytes for vcpu%u %s blob",
               blobsz, vhdr->vcpu_id, rec_name);
+        goto out;
+    }
+
+    memcpy(blob, &vhdr->context, blobsz);
+
+    /* Stash sideways for later. */
+    switch ( rec->type )
+    {
+#define RECSTORE(x, y) case REC_TYPE_X86_PV_ ## x: \
+        free(y); (y) = blob; (y ## sz) = blobsz; break
+
+        RECSTORE(VCPU_BASIC,    vcpu->basic);
+        RECSTORE(VCPU_EXTENDED, vcpu->extd);
+        RECSTORE(VCPU_XSAVE,    vcpu->xsave);
+        RECSTORE(VCPU_MSRS,     vcpu->msr);
+#undef RECSTORE
+    }
+
+    rc = 0;
 
  out:
     return rc;
@@ -880,12 +880,12 @@ static int handle_shared_info(struct xc_sr_context *ctx,
                               struct xc_sr_record *rec)
 {
     xc_interface *xch = ctx->xch;
-    unsigned int i;
+    unsigned i;
     int rc = -1;
     shared_info_any_t *guest_shinfo = NULL;
     const shared_info_any_t *old_shinfo = rec->data;
 
-    if ( !ctx->x86.pv.restore.seen_pv_info )
+    if ( !ctx->x86_pv.restore.seen_pv_info )
     {
         ERROR("Not yet received X86_PV_INFO record");
         return -1;
@@ -908,22 +908,22 @@ static int handle_shared_info(struct xc_sr_context *ctx,
         goto err;
     }
 
-    MEMCPY_FIELD(guest_shinfo, old_shinfo, vcpu_info, ctx->x86.pv.width);
-    MEMCPY_FIELD(guest_shinfo, old_shinfo, arch, ctx->x86.pv.width);
+    MEMCPY_FIELD(guest_shinfo, old_shinfo, vcpu_info, ctx->x86_pv.width);
+    MEMCPY_FIELD(guest_shinfo, old_shinfo, arch, ctx->x86_pv.width);
 
     SET_FIELD(guest_shinfo, arch.pfn_to_mfn_frame_list_list,
-              0, ctx->x86.pv.width);
+              0, ctx->x86_pv.width);
 
-    MEMSET_ARRAY_FIELD(guest_shinfo, evtchn_pending, 0, ctx->x86.pv.width);
+    MEMSET_ARRAY_FIELD(guest_shinfo, evtchn_pending, 0, ctx->x86_pv.width);
     for ( i = 0; i < XEN_LEGACY_MAX_VCPUS; i++ )
         SET_FIELD(guest_shinfo, vcpu_info[i].evtchn_pending_sel,
-                  0, ctx->x86.pv.width);
+                  0, ctx->x86_pv.width);
 
-    MEMSET_ARRAY_FIELD(guest_shinfo, evtchn_mask, 0xff, ctx->x86.pv.width);
+    MEMSET_ARRAY_FIELD(guest_shinfo, evtchn_mask, 0xff, ctx->x86_pv.width);
 
     rc = 0;
-
  err:
+
     if ( guest_shinfo )
         munmap(guest_shinfo, PAGE_SIZE);
 
@@ -933,30 +933,30 @@ static int handle_shared_info(struct xc_sr_context *ctx,
 /* restore_ops function. */
 static bool x86_pv_pfn_is_valid(const struct xc_sr_context *ctx, xen_pfn_t pfn)
 {
-    return pfn <= ctx->x86.pv.max_pfn;
+    return pfn <= ctx->x86_pv.max_pfn;
 }
 
 /* restore_ops function. */
 static void x86_pv_set_page_type(struct xc_sr_context *ctx, xen_pfn_t pfn,
                                  unsigned long type)
 {
-    assert(pfn <= ctx->x86.pv.max_pfn);
+    assert(pfn <= ctx->x86_pv.max_pfn);
 
-    ctx->x86.pv.restore.pfn_types[pfn] = type;
+    ctx->x86_pv.restore.pfn_types[pfn] = type;
 }
 
 /* restore_ops function. */
 static void x86_pv_set_gfn(struct xc_sr_context *ctx, xen_pfn_t pfn,
                            xen_pfn_t mfn)
 {
-    assert(pfn <= ctx->x86.pv.max_pfn);
+    assert(pfn <= ctx->x86_pv.max_pfn);
 
-    if ( ctx->x86.pv.width == sizeof(uint64_t) )
+    if ( ctx->x86_pv.width == sizeof(uint64_t) )
         /* 64 bit guest.  Need to expand INVALID_MFN for 32 bit toolstacks. */
-        ((uint64_t *)ctx->x86.pv.p2m)[pfn] = mfn == INVALID_MFN ? ~0ULL : mfn;
+        ((uint64_t *)ctx->x86_pv.p2m)[pfn] = mfn == INVALID_MFN ? ~0ULL : mfn;
     else
         /* 32 bit guest.  Can truncate INVALID_MFN for 64 bit toolstacks. */
-        ((uint32_t *)ctx->x86.pv.p2m)[pfn] = mfn;
+        ((uint32_t *)ctx->x86_pv.p2m)[pfn] = mfn;
 }
 
 /*
@@ -970,7 +970,7 @@ static int x86_pv_localise_page(struct xc_sr_context *ctx,
     xc_interface *xch = ctx->xch;
     uint64_t *table = page;
     uint64_t pte;
-    unsigned int i, to_populate;
+    unsigned i, to_populate;
     xen_pfn_t pfns[(PAGE_SIZE / sizeof(uint64_t))];
 
     type &= XEN_DOMCTL_PFINFO_LTABTYPE_MASK;
@@ -1048,8 +1048,7 @@ static int x86_pv_setup(struct xc_sr_context *ctx)
               dhdr_type_to_str(ctx->restore.guest_type));
         return -1;
     }
-
-    if ( ctx->restore.guest_page_size != PAGE_SIZE )
+    else if ( ctx->restore.guest_page_size != PAGE_SIZE )
     {
         ERROR("Invalid page size %d for x86_pv domains",
               ctx->restore.guest_page_size);
@@ -1060,10 +1059,10 @@ static int x86_pv_setup(struct xc_sr_context *ctx)
     if ( rc )
         return rc;
 
-    ctx->x86.pv.restore.nr_vcpus = ctx->dominfo.max_vcpu_id + 1;
-    ctx->x86.pv.restore.vcpus = calloc(sizeof(struct xc_sr_x86_pv_restore_vcpu),
-                                       ctx->x86.pv.restore.nr_vcpus);
-    if ( !ctx->x86.pv.restore.vcpus )
+    ctx->x86_pv.restore.nr_vcpus = ctx->dominfo.max_vcpu_id + 1;
+    ctx->x86_pv.restore.vcpus = calloc(sizeof(struct xc_sr_x86_pv_restore_vcpu),
+                                       ctx->x86_pv.restore.nr_vcpus);
+    if ( !ctx->x86_pv.restore.vcpus )
     {
         errno = ENOMEM;
         return -1;
@@ -1099,14 +1098,8 @@ static int x86_pv_process_record(struct xc_sr_context *ctx,
     case REC_TYPE_SHARED_INFO:
         return handle_shared_info(ctx, rec);
 
-    case REC_TYPE_X86_TSC_INFO:
-        return handle_x86_tsc_info(ctx, rec);
-
-    case REC_TYPE_X86_CPUID_POLICY:
-        return handle_x86_cpuid_policy(ctx, rec);
-
-    case REC_TYPE_X86_MSR_POLICY:
-        return handle_x86_msr_policy(ctx, rec);
+    case REC_TYPE_TSC_INFO:
+        return handle_tsc_info(ctx, rec);
 
     default:
         return RECORD_NOT_PROCESSED;
@@ -1134,7 +1127,7 @@ static int x86_pv_stream_complete(struct xc_sr_context *ctx)
     if ( rc )
         return rc;
 
-    rc = xc_dom_gnttab_seed(xch, ctx->domid, false,
+    rc = xc_dom_gnttab_seed(xch, ctx->domid,
                             ctx->restore.console_gfn,
                             ctx->restore.xenstore_gfn,
                             ctx->restore.console_domid,
@@ -1153,34 +1146,31 @@ static int x86_pv_stream_complete(struct xc_sr_context *ctx)
  */
 static int x86_pv_cleanup(struct xc_sr_context *ctx)
 {
-    free(ctx->x86.pv.p2m);
-    free(ctx->x86.pv.p2m_pfns);
+    free(ctx->x86_pv.p2m);
+    free(ctx->x86_pv.p2m_pfns);
 
-    if ( ctx->x86.pv.restore.vcpus )
+    if ( ctx->x86_pv.restore.vcpus )
     {
-        unsigned int i;
+        unsigned i;
 
-        for ( i = 0; i < ctx->x86.pv.restore.nr_vcpus; ++i )
+        for ( i = 0; i < ctx->x86_pv.restore.nr_vcpus; ++i )
         {
             struct xc_sr_x86_pv_restore_vcpu *vcpu =
-                &ctx->x86.pv.restore.vcpus[i];
+                &ctx->x86_pv.restore.vcpus[i];
 
-            free(vcpu->basic.ptr);
-            free(vcpu->extd.ptr);
-            free(vcpu->xsave.ptr);
-            free(vcpu->msr.ptr);
+            free(vcpu->basic);
+            free(vcpu->extd);
+            free(vcpu->xsave);
+            free(vcpu->msr);
         }
 
-        free(ctx->x86.pv.restore.vcpus);
+        free(ctx->x86_pv.restore.vcpus);
     }
 
-    free(ctx->x86.pv.restore.pfn_types);
+    free(ctx->x86_pv.restore.pfn_types);
 
-    if ( ctx->x86.pv.m2p )
-        munmap(ctx->x86.pv.m2p, ctx->x86.pv.nr_m2p_frames * PAGE_SIZE);
-
-    free(ctx->x86.restore.cpuid.ptr);
-    free(ctx->x86.restore.msr.ptr);
+    if ( ctx->x86_pv.m2p )
+        munmap(ctx->x86_pv.m2p, ctx->x86_pv.nr_m2p_frames * PAGE_SIZE);
 
     return 0;
 }
@@ -1194,7 +1184,6 @@ struct xc_sr_restore_ops restore_ops_x86_pv =
     .localise_page   = x86_pv_localise_page,
     .setup           = x86_pv_setup,
     .process_record  = x86_pv_process_record,
-    .static_data_complete = x86_static_data_complete,
     .stream_complete = x86_pv_stream_complete,
     .cleanup         = x86_pv_cleanup,
 };

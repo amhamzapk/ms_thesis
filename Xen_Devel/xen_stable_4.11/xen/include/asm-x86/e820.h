@@ -37,7 +37,8 @@ extern struct e820map e820_raw;
 
 /* These symbols live in the boot trampoline. */
 extern unsigned int lowmem_kb, highmem_kb;
-extern struct e820map bios_e820map[];
-extern unsigned int bios_e820nr;
+unsigned int e820map_copy(struct e820entry *map, unsigned int limit);
+
+#define copy_bios_e820 bootsym(e820map_copy)
 
 #endif /*__E820_HEADER*/

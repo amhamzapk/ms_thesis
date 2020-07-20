@@ -16,7 +16,6 @@
 #include <xen/cpu.h>
 #include <xen/err.h>
 #include <xen/init.h>
-#include <xen/param.h>
 #include <xen/sched.h>
 #include <asm/psr.h>
 

@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-from __future__ import print_function
-
 import os
 import sys
 import re
@@ -88,7 +86,7 @@ def gen_rand_init(ty, v, indent = "    ", parent = None):
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print("Usage: gentest.py <idl> <implementation>", file=sys.stderr)
+        print >>sys.stderr, "Usage: gentest.py <idl> <implementation>"
         sys.exit(1)
 
     random.seed(os.getenv('LIBXL_TESTIDL_SEED'))

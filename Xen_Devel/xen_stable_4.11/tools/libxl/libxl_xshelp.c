@@ -209,9 +209,11 @@ int libxl__xs_read_checked(libxl__gc *gc, xs_transaction_t t,
                            const char *path, const char **result_out)
 {
     char *result = libxl__xs_read(gc, t, path);
-    if (!result && errno != ENOENT) {
-        LOGE(ERROR, "xenstore read failed: `%s'", path);
-        return ERROR_FAIL;
+    if (!result) {
+        if (errno != ENOENT) {
+            LOGE(ERROR, "xenstore read failed: `%s'", path);
+            return ERROR_FAIL;
+        }
     }
     *result_out = result;
     return 0;

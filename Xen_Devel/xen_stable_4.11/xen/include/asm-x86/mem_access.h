@@ -36,25 +36,18 @@
  */
 bool p2m_mem_access_check(paddr_t gpa, unsigned long gla,
                           struct npfec npfec,
-                          struct vm_event_st **req_ptr);
+                          vm_event_request_t **req_ptr);
 
 /* Check for emulation and mark vcpu for skipping one instruction
  * upon rescheduling if required. */
 bool p2m_mem_access_emulate_check(struct vcpu *v,
-                                  const struct vm_event_st *rsp);
+                                  const vm_event_response_t *rsp);
 
 /* Sanity check for mem_access hardware support */
-bool p2m_mem_access_sanity_check(const struct domain *d);
-
-int p2m_set_suppress_ve(struct domain *d, gfn_t gfn, bool suppress_ve,
-                        unsigned int altp2m_idx);
-
-struct xen_hvm_altp2m_suppress_ve_multi;
-int p2m_set_suppress_ve_multi(struct domain *d,
-                              struct xen_hvm_altp2m_suppress_ve_multi *suppress_ve);
-
-int p2m_get_suppress_ve(struct domain *d, gfn_t gfn, bool *suppress_ve,
-                        unsigned int altp2m_idx);
+static inline bool p2m_mem_access_sanity_check(struct domain *d)
+{
+    return is_hvm_domain(d) && cpu_has_vmx && hap_enabled(d);
+}
 
 #endif /*__ASM_X86_MEM_ACCESS_H__ */
 

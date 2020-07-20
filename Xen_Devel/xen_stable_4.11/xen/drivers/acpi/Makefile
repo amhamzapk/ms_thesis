@@ -1,6 +1,6 @@
-obj-y += tables/
-obj-y += utilities/
-obj-$(CONFIG_X86) += apei/
+subdir-y += tables
+subdir-y += utilities
+subdir-$(CONFIG_X86) += apei
 
 obj-bin-y += tables.init.o
 obj-$(CONFIG_NUMA) += numa.o

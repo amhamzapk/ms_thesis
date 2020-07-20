@@ -44,17 +44,6 @@ static struct expanding_buffer ebuf;
 
 static int output_size = 0;
 
-/* make sure there is at least 'len' more space in output_buf */
-static void expand_buffer(size_t len)
-{
-    if (output_pos + len > output_size) {
-        output_size += len + 1024;
-        output_buf = realloc(output_buf, output_size);
-        if (output_buf == NULL)
-            err(1, "malloc");
-    }
-}
-
 static void
 output(const char *fmt, ...) {
     va_list ap;
@@ -66,19 +55,16 @@ output(const char *fmt, ...) {
     if (len < 0)
 	err(1, "output");
     va_end(ap);
-    expand_buffer(len + 1);
+    if (len + 1 + output_pos > output_size) {
+	output_size += len + 1024;
+	output_buf = realloc(output_buf, output_size);
+	if (output_buf == NULL)
+	    err(1, "malloc");
+    }
     va_start(ap, fmt);
     if (vsnprintf(&output_buf[output_pos], len + 1, fmt, ap) != len)
 	err(1, "output");
     va_end(ap);
-    output_pos += len;
-}
-
-static void
-output_raw(const char *data, int len)
-{
-    expand_buffer(len);
-    memcpy(&output_buf[output_pos], data, len);
     output_pos += len;
 }
 
@@ -92,10 +78,10 @@ usage(enum mode mode, int incl_mode, const char *progname)
 	errx(1, "Usage: %s <mode> [-h] [...]", progname);
     case MODE_read:
 	mstr = incl_mode ? "read " : "";
-	errx(1, "Usage: %s %s[-h] [-p] [-s] [-R] key [...]", progname, mstr);
+	errx(1, "Usage: %s %s[-h] [-p] [-s] key [...]", progname, mstr);
     case MODE_write:
 	mstr = incl_mode ? "write " : "";
-	errx(1, "Usage: %s %s[-h] [-s] [-R] key value [...]", progname, mstr);
+	errx(1, "Usage: %s %s[-h] [-s] key value [...]", progname, mstr);
     case MODE_rm:
 	mstr = incl_mode ? "rm " : "";
 	errx(1, "Usage: %s %s[-h] [-s] [-t] key [...]", progname, mstr);
@@ -307,8 +293,7 @@ do_watch(struct xs_handle *xsh, int max_events)
 
 static int
 perform(enum mode mode, int optind, int argc, char **argv, struct xs_handle *xsh,
-        xs_transaction_t xth, int prefix, int tidy, int upto, int recurse, int nr_watches,
-        int raw)
+        xs_transaction_t xth, int prefix, int tidy, int upto, int recurse, int nr_watches)
 {
     switch (mode) {
     case MODE_ls:
@@ -337,27 +322,17 @@ perform(enum mode mode, int optind, int argc, char **argv, struct xs_handle *xsh
             }
             if (prefix)
                 output("%s: ", argv[optind]);
-            if (raw)
-                output_raw(val, len);
-            else
-                output("%s\n", sanitise_value(&ebuf, val, len));
+            output("%s\n", sanitise_value(&ebuf, val, len));
             free(val);
             optind++;
             break;
         }
         case MODE_write: {
             char *val_spec = argv[optind + 1];
-            char *val;
             unsigned len;
-            if (raw) {
-                val = val_spec;
-                len = strlen(val_spec);
-            } else {
-                expanding_buffer_ensure(&ebuf, strlen(val_spec)+1);
-                unsanitise_value(ebuf.buf, &len, val_spec);
-                val = ebuf.buf;
-            }
-            if (!xs_write(xsh, xth, argv[optind], val, len)) {
+            expanding_buffer_ensure(&ebuf, strlen(val_spec)+1);
+            unsanitise_value(ebuf.buf, &len, val_spec);
+            if (!xs_write(xsh, xth, argv[optind], ebuf.buf, len)) {
                 warnx("could not write path %s", argv[optind]);
                 return 1;
             }
@@ -531,7 +506,6 @@ main(int argc, char **argv)
     int recurse = 0;
     int nr_watches = -1;
     int transaction;
-    int raw = 0;
     struct winsize ws;
     enum mode mode;
 
@@ -565,11 +539,10 @@ main(int argc, char **argv)
 	    {"upto",    0, 0, 'u'}, /* MODE_chmod */
 	    {"recurse", 0, 0, 'r'}, /* MODE_chmod */
 	    {"number",  1, 0, 'n'}, /* MODE_watch */
-	    {"raw",     0, 0, 'R'}, /* MODE_read || MODE_write */
 	    {0, 0, 0, 0}
 	};
 
-	c = getopt_long(argc - switch_argv, argv + switch_argv, "hfspturn:R",
+	c = getopt_long(argc - switch_argv, argv + switch_argv, "hfspturn:",
 			long_options, &index);
 	if (c == -1)
 	    break;
@@ -617,12 +590,6 @@ main(int argc, char **argv)
 	case 'n':
 	    if ( mode == MODE_watch )
 		nr_watches = atoi(optarg);
-	    else
-		usage(mode, switch_argv, argv[0]);
-	    break;
-	case 'R':
-	    if ( mode == MODE_read || mode == MODE_write )
-		raw = 1;
 	    else
 		usage(mode, switch_argv, argv[0]);
 	    break;
@@ -679,7 +646,7 @@ again:
 	    errx(1, "couldn't start transaction");
     }
 
-    ret = perform(mode, optind, argc - switch_argv, argv + switch_argv, xsh, xth, prefix, tidy, upto, recurse, nr_watches, raw);
+    ret = perform(mode, optind, argc - switch_argv, argv + switch_argv, xsh, xth, prefix, tidy, upto, recurse, nr_watches);
 
     if (transaction && !xs_transaction_end(xsh, xth, ret)) {
 	if (ret == 0 && errno == EAGAIN) {
@@ -690,7 +657,7 @@ again:
     }
 
     if (output_pos)
-        fwrite(output_buf, 1, output_pos, stdout);
+	printf("%s", output_buf);
 
     free(output_buf);
     free(ebuf.buf);

@@ -16,7 +16,8 @@
 #include <xen/vmap.h>
 
 #include <asm/guest_access.h>
-#include <asm/kernel.h>
+
+#include "kernel.h"
 
 #define UIMAGE_MAGIC          0x27051956
 #define UIMAGE_NMLEN          32
@@ -45,7 +46,7 @@ struct minimal_dtb_header {
  * @paddr: source physical address
  * @len: length to copy
  */
-void __init copy_from_paddr(void *dst, paddr_t paddr, unsigned long len)
+void copy_from_paddr(void *dst, paddr_t paddr, unsigned long len)
 {
     void *src = (void *)FIXMAP_ADDR(FIXMAP_MISC);
 
@@ -58,16 +59,17 @@ void __init copy_from_paddr(void *dst, paddr_t paddr, unsigned long len)
         set_fixmap(FIXMAP_MISC, maddr_to_mfn(paddr), PAGE_HYPERVISOR_WC);
         memcpy(dst, src + s, l);
         clean_dcache_va_range(dst, l);
-        clear_fixmap(FIXMAP_MISC);
 
         paddr += l;
         dst += l;
         len -= l;
     }
+
+    clear_fixmap(FIXMAP_MISC);
 }
 
-static void __init place_modules(struct kernel_info *info,
-                                 paddr_t kernbase, paddr_t kernend)
+static void place_modules(struct kernel_info *info,
+                          paddr_t kernbase, paddr_t kernend)
 {
     /* Align DTB and initrd size to 2Mb. Linux only requires 4 byte alignment */
     const struct bootmodule *mod = info->initrd_bootmodule;
@@ -85,7 +87,7 @@ static void __init place_modules(struct kernel_info *info,
     paddr_t modbase;
 
     if ( modsize + kernsize > ramsize )
-        panic("Not enough memory in the first bank for the kernel+dtb+initrd\n");
+        panic("Not enough memory in the first bank for the kernel+dtb+initrd");
 
     /*
      * DTB must be loaded such that it does not conflict with the
@@ -112,7 +114,7 @@ static void __init place_modules(struct kernel_info *info,
         modbase = kernbase - modsize;
     else
     {
-        panic("Unable to find suitable location for dtb+initrd\n");
+        panic("Unable to find suitable location for dtb+initrd");
         return;
     }
 
@@ -120,7 +122,7 @@ static void __init place_modules(struct kernel_info *info,
     info->initrd_paddr = info->dtb_paddr + dtb_len;
 }
 
-static paddr_t __init kernel_zimage_place(struct kernel_info *info)
+static paddr_t kernel_zimage_place(struct kernel_info *info)
 {
     paddr_t load_addr;
 
@@ -152,7 +154,7 @@ static paddr_t __init kernel_zimage_place(struct kernel_info *info)
     return load_addr;
 }
 
-static void __init kernel_zimage_load(struct kernel_info *info)
+static void kernel_zimage_load(struct kernel_info *info)
 {
     paddr_t load_addr = kernel_zimage_place(info);
     paddr_t paddr = info->zimage.kernel_addr;
@@ -169,12 +171,12 @@ static void __init kernel_zimage_load(struct kernel_info *info)
 
     kernel = ioremap_wc(paddr, len);
     if ( !kernel )
-        panic("Unable to map the hwdom kernel\n");
+        panic("Unable to map the hwdom kernel");
 
     rc = copy_to_guest_phys_flush_dcache(info->d, load_addr,
                                          kernel, len);
     if ( rc != 0 )
-        panic("Unable to copy the kernel in the hwdom memory\n");
+        panic("Unable to copy the kernel in the hwdom memory");
 
     iounmap(kernel);
 }
@@ -188,8 +190,8 @@ static void __init kernel_zimage_load(struct kernel_info *info)
 /*
  * Check if the image is a uImage and setup kernel_info
  */
-static int __init kernel_uimage_probe(struct kernel_info *info,
-                                      paddr_t addr, paddr_t size)
+static int kernel_uimage_probe(struct kernel_info *info,
+                                 paddr_t addr, paddr_t size)
 {
     struct {
         __be32 magic;   /* Image Header Magic Number */
@@ -316,8 +318,8 @@ static __init int kernel_decompress(struct bootmodule *mod)
 /*
  * Check if the image is a 64-bit Image.
  */
-static int __init kernel_zimage64_probe(struct kernel_info *info,
-                                        paddr_t addr, paddr_t size)
+static int kernel_zimage64_probe(struct kernel_info *info,
+                                 paddr_t addr, paddr_t size)
 {
     /* linux/Documentation/arm64/booting.txt */
     struct {
@@ -370,8 +372,8 @@ static int __init kernel_zimage64_probe(struct kernel_info *info,
 /*
  * Check if the image is a 32-bit zImage and setup kernel_info
  */
-static int __init kernel_zimage32_probe(struct kernel_info *info,
-                                        paddr_t addr, paddr_t size)
+static int kernel_zimage32_probe(struct kernel_info *info,
+                                 paddr_t addr, paddr_t size)
 {
     uint32_t zimage[ZIMAGE32_HEADER_LEN/4];
     uint32_t start, end;
@@ -419,84 +421,97 @@ static int __init kernel_zimage32_probe(struct kernel_info *info,
     return 0;
 }
 
-int __init kernel_probe(struct kernel_info *info,
-                        const struct dt_device_node *domain)
+static void kernel_elf_load(struct kernel_info *info)
 {
-    struct bootmodule *mod = NULL;
-    struct bootcmdline *cmd = NULL;
-    struct dt_device_node *node;
-    u64 kernel_addr, initrd_addr, dtb_addr, size;
+    /*
+     * TODO: can the ELF header be used to find the physical address
+     * to load the image to?  Instead of assuming virt == phys.
+     */
+    info->entry = info->elf.parms.virt_entry;
+
+    place_modules(info,
+                  info->elf.parms.virt_kstart,
+                  info->elf.parms.virt_kend);
+
+    printk("Loading ELF image into guest memory\n");
+    info->elf.elf.dest_base = (void*)(unsigned long)info->elf.parms.virt_kstart;
+    info->elf.elf.dest_size =
+         info->elf.parms.virt_kend - info->elf.parms.virt_kstart;
+
+    elf_load_binary(&info->elf.elf);
+
+    printk("Free temporary kernel buffer\n");
+    free_xenheap_pages(info->elf.kernel_img, info->elf.kernel_order);
+}
+
+static int kernel_elf_probe(struct kernel_info *info,
+                            paddr_t addr, paddr_t size)
+{
     int rc;
 
-    /* domain is NULL only for the hardware domain */
-    if ( domain == NULL )
-    {
-        ASSERT(is_hardware_domain(info->d));
+    memset(&info->elf.elf, 0, sizeof(info->elf.elf));
 
-        mod = boot_module_find_by_kind(BOOTMOD_KERNEL);
+    info->elf.kernel_order = get_order_from_bytes(size);
+    info->elf.kernel_img = alloc_xenheap_pages(info->elf.kernel_order, 0);
+    if ( info->elf.kernel_img == NULL )
+        panic("Cannot allocate temporary buffer for kernel");
 
-        info->kernel_bootmodule = mod;
-        info->initrd_bootmodule = boot_module_find_by_kind(BOOTMOD_RAMDISK);
+    copy_from_paddr(info->elf.kernel_img, addr, size);
 
-        cmd = boot_cmdline_find_by_kind(BOOTMOD_KERNEL);
-        if ( cmd )
-            info->cmdline = &cmd->cmdline[0];
-    }
+    if ( (rc = elf_init(&info->elf.elf, info->elf.kernel_img, size )) != 0 )
+        goto err;
+#ifdef CONFIG_VERBOSE_DEBUG
+    elf_set_verbose(&info->elf.elf);
+#endif
+    elf_parse_binary(&info->elf.elf);
+    if ( (rc = elf_xen_parse(&info->elf.elf, &info->elf.parms)) != 0 )
+        goto err;
+
+#ifdef CONFIG_ARM_64
+    if ( elf_32bit(&info->elf.elf) )
+        info->type = DOMAIN_32BIT;
+    else if ( elf_64bit(&info->elf.elf) )
+        info->type = DOMAIN_64BIT;
     else
     {
-        const char *name = NULL;
-
-        dt_for_each_child_node(domain, node)
-        {
-            if ( dt_device_is_compatible(node, "multiboot,kernel") )
-            {
-                u32 len;
-                const __be32 *val;
-
-                val = dt_get_property(node, "reg", &len);
-                dt_get_range(&val, node, &kernel_addr, &size);
-                mod = boot_module_find_by_addr_and_kind(
-                        BOOTMOD_KERNEL, kernel_addr);
-                info->kernel_bootmodule = mod;
-            }
-            else if ( dt_device_is_compatible(node, "multiboot,ramdisk") )
-            {
-                u32 len;
-                const __be32 *val;
-
-                val = dt_get_property(node, "reg", &len);
-                dt_get_range(&val, node, &initrd_addr, &size);
-                info->initrd_bootmodule = boot_module_find_by_addr_and_kind(
-                        BOOTMOD_RAMDISK, initrd_addr);
-            }
-            else if ( dt_device_is_compatible(node, "multiboot,device-tree") )
-            {
-                uint32_t len;
-                const __be32 *val;
-
-                val = dt_get_property(node, "reg", &len);
-                if ( val == NULL )
-                    continue;
-                dt_get_range(&val, node, &dtb_addr, &size);
-                info->dtb_bootmodule = boot_module_find_by_addr_and_kind(
-                        BOOTMOD_GUEST_DTB, dtb_addr);
-            }
-            else
-                continue;
-        }
-        name = dt_node_name(domain);
-        cmd = boot_cmdline_find_by_name(name);
-        if ( cmd )
-            info->cmdline = &cmd->cmdline[0];
+        printk("Unknown ELF class\n");
+        rc = -EINVAL;
+        goto err;
     }
+#endif
+
+    info->load = kernel_elf_load;
+
+    if ( elf_check_broken(&info->elf.elf) )
+        printk("Xen: warning: ELF kernel broken: %s\n",
+               elf_check_broken(&info->elf.elf));
+
+    return 0;
+err:
+    if ( elf_check_broken(&info->elf.elf) )
+        printk("Xen: ELF kernel broken: %s\n",
+               elf_check_broken(&info->elf.elf));
+
+    free_xenheap_pages(info->elf.kernel_img, info->elf.kernel_order);
+    return rc;
+}
+
+int kernel_probe(struct kernel_info *info)
+{
+    struct bootmodule *mod = boot_module_find_by_kind(BOOTMOD_KERNEL);
+    int rc;
+
     if ( !mod || !mod->size )
     {
         printk(XENLOG_ERR "Missing kernel boot module?\n");
         return -ENOENT;
     }
 
-    printk("Loading %pd kernel from boot module @ %"PRIpaddr"\n",
-           info->d, info->kernel_bootmodule->start);
+    info->kernel_bootmodule = mod;
+
+    printk("Loading kernel from boot module @ %"PRIpaddr"\n", mod->start);
+
+    info->initrd_bootmodule = boot_module_find_by_kind(BOOTMOD_RAMDISK);
     if ( info->initrd_bootmodule )
         printk("Loading ramdisk from boot module @ %"PRIpaddr"\n",
                info->initrd_bootmodule->start);
@@ -513,11 +528,13 @@ int __init kernel_probe(struct kernel_info *info,
         rc = kernel_uimage_probe(info, mod->start, mod->size);
     if (rc < 0)
         rc = kernel_zimage32_probe(info, mod->start, mod->size);
+    if (rc < 0)
+        rc = kernel_elf_probe(info, mod->start, mod->size);
 
     return rc;
 }
 
-void __init kernel_load(struct kernel_info *info)
+void kernel_load(struct kernel_info *info)
 {
     info->load(info);
 }

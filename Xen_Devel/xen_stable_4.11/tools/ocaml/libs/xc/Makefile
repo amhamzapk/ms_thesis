@@ -31,11 +31,4 @@ install: $(LIBS) META
 uninstall:
 	$(OCAMLFIND) remove -destdir $(OCAMLDESTDIR) xenctrl
 
-xenctrl_stubs.o: xenctrl_abi_check.h
-
-xenctrl_abi_check.h: abi-check xenctrl_stubs.c xenctrl.ml
-	$(PERL) -w $^ >$@.tmp && mv -f $@.tmp $@
-
-GENERATED_FILES += xenctrl_abi_check.h
-
 include $(TOPLEVEL)/Makefile.rules

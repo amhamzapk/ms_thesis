@@ -10,6 +10,7 @@
 
 #include <asm/atomic.h>
 #include <asm/elf.h>
+#include <asm/percpu.h>
 #include <xen/types.h>
 #include <xen/irq.h>
 #include <asm/nmi.h>
@@ -165,8 +166,11 @@ static void nmi_shootdown_cpus(void)
     if ( cpumask_empty(&waiting_to_crash) )
         printk("Shot down all CPUs\n");
     else
-        printk("Failed to shoot down CPUs {%*pbl}\n",
-               CPUMASK_PR(&waiting_to_crash));
+    {
+        cpulist_scnprintf(keyhandler_scratch, sizeof keyhandler_scratch,
+                          &waiting_to_crash);
+        printk("Failed to shoot down CPUs {%s}\n", keyhandler_scratch);
+    }
 
     /*
      * Try to crash shutdown IOMMU functionality as some old crashdump
@@ -199,13 +203,6 @@ void machine_crash_shutdown(void)
 
     /* Reset CPUID masking and faulting to the host's default. */
     ctxt_switch_levelling(NULL);
-
-    /* Disable shadow stacks. */
-    if ( cpu_has_xen_shstk )
-    {
-        wrmsrl(MSR_S_CET, 0);
-        write_cr4(read_cr4() & ~X86_CR4_CET);
-    }
 
     info = kexec_crash_save_info();
     info->xen_phys_start = xen_phys_start;

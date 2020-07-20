@@ -2,7 +2,7 @@
  * physdev.c
  */
 
-EMIT_FILE;
+asm(".file \"" __FILE__ "\"");
 
 #include <xen/types.h>
 #include <xen/guest_access.h>

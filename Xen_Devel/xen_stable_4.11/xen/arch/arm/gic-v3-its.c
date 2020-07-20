@@ -363,12 +363,11 @@ static int its_map_baser(void __iomem *basereg, uint64_t regc,
      * attributes), retrying if necessary.
      */
 retry:
-    table_size = ROUNDUP(nr_items * entry_size,
-                         BIT(BASER_PAGE_BITS(pagesz), UL));
+    table_size = ROUNDUP(nr_items * entry_size, BIT(BASER_PAGE_BITS(pagesz)));
     /* The BASE registers support at most 256 pages. */
     table_size = min(table_size, 256U << BASER_PAGE_BITS(pagesz));
 
-    buffer = _xzalloc(table_size, BIT(BASER_PAGE_BITS(pagesz), UL));
+    buffer = _xzalloc(table_size, BIT(BASER_PAGE_BITS(pagesz)));
     if ( !buffer )
         return -ENOMEM;
 
@@ -484,7 +483,7 @@ static int gicv3_its_init_single_its(struct host_its *hw_its)
         case GITS_BASER_TYPE_NONE:
             continue;
         case GITS_BASER_TYPE_DEVICE:
-            ret = its_map_baser(basereg, reg, BIT(hw_its->devid_bits, UL));
+            ret = its_map_baser(basereg, reg, BIT(hw_its->devid_bits));
             if ( ret )
                 return ret;
             break;
@@ -636,7 +635,7 @@ int gicv3_its_map_guest_device(struct domain *d,
         return ret;
 
     /* Sanitise the provided hardware values against the host ITS. */
-    if ( host_devid >= BIT(hw_its->devid_bits, UL) )
+    if ( host_devid >= BIT(hw_its->devid_bits) )
         return -EINVAL;
 
     /*
@@ -646,10 +645,10 @@ int gicv3_its_map_guest_device(struct domain *d,
      * TODO: Investigate if the number of events can be limited to smaller
      * values if the guest does not require that many.
      */
-    nr_events = BIT(fls(nr_events - 1), UL);
+    nr_events = BIT(fls(nr_events - 1));
     if ( nr_events < LPI_BLOCK )
         nr_events = LPI_BLOCK;
-    if ( nr_events >= BIT(hw_its->evid_bits, UL) )
+    if ( nr_events >= BIT(hw_its->evid_bits) )
         return -EINVAL;
 
     /* check for already existing mappings */
@@ -993,7 +992,7 @@ static void add_to_host_its_list(paddr_t addr, paddr_t size,
 
     its_data = xzalloc(struct host_its);
     if ( !its_data )
-        panic("GICv3: Cannot allocate memory for ITS frame\n");
+        panic("GICv3: Cannot allocate memory for ITS frame");
 
     its_data->addr = addr;
     its_data->size = size;
@@ -1021,7 +1020,7 @@ static void gicv3_its_dt_init(const struct dt_device_node *node)
             continue;
 
         if ( dt_device_get_address(its, 0, &addr, &size) )
-            panic("GICv3: Cannot find a valid ITS frame address\n");
+            panic("GICv3: Cannot find a valid ITS frame address");
 
         add_to_host_its_list(addr, size, its);
     }

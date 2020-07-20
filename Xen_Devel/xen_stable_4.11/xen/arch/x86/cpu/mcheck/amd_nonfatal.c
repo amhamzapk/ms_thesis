@@ -203,10 +203,10 @@ static void mce_amd_work_fn(void *data)
 
 void __init amd_nonfatal_mcheck_init(struct cpuinfo_x86 *c)
 {
-	if (!(c->x86_vendor & (X86_VENDOR_AMD | X86_VENDOR_HYGON)))
+	if (c->x86_vendor != X86_VENDOR_AMD)
 		return;
 
-	/* Assume we are on K8 or newer AMD or Hygon CPU here */
+	/* Assume we are on K8 or newer AMD CPU here */
 
 	/* The threshold bitfields in MSR_IA32_MC4_MISC has
 	 * been introduced along with the SVME feature bit. */

@@ -147,7 +147,8 @@ static int libxl__device_from_usbctrl(libxl__gc *gc, uint32_t domid,
         device->backend_kind = LIBXL__DEVICE_KIND_NONE;
         break;
     default:
-        abort(); /* can't really happen. */
+        assert(0); /* can't really happen. */
+        break;
     }
     device->devid           = usbctrl->devid;
     device->domid           = domid;
@@ -202,7 +203,7 @@ static int libxl__device_usbctrl_add_xenstore(libxl__gc *gc, uint32_t domid,
     int i, rc;
     libxl_domain_config d_config;
     libxl_device_usbctrl usbctrl_saved;
-    libxl__flock *lock = NULL;
+    libxl__domain_userdata_lock *lock = NULL;
 
     libxl_domain_config_init(&d_config);
     libxl_device_usbctrl_init(&usbctrl_saved);
@@ -291,7 +292,7 @@ static int libxl__device_usbctrl_add_xenstore(libxl__gc *gc, uint32_t domid,
 
 out:
     libxl__xs_transaction_abort(gc, &t);
-    if (lock) libxl__unlock_file(lock);
+    if (lock) libxl__unlock_domain_userdata(lock);
     libxl_device_usbctrl_dispose(&usbctrl_saved);
     libxl_domain_config_dispose(&d_config);
     return rc;
@@ -349,98 +350,87 @@ static char *pvusb_get_device_type(libxl_usbctrl_type type)
  * - usb-ehci       (version=2), always 6 ports
  * - nec-usb-xhci   (version=3), up to 15 ports
  */
-static int libxl__device_usbctrl_add_hvm(libxl__egc *egc, libxl__ev_qmp *qmp,
+static int libxl__device_usbctrl_add_hvm(libxl__gc *gc, uint32_t domid,
                                          libxl_device_usbctrl *usbctrl)
 {
-    EGC_GC;
-    libxl__json_object *qmp_args = NULL;
+    flexarray_t *qmp_args;
+
+    qmp_args = flexarray_make(gc, 8, 1);
 
     switch (usbctrl->version) {
     case 1:
-        libxl__qmp_param_add_string(gc, &qmp_args,
-                                    "driver", "piix3-usb-uhci");
+        flexarray_append_pair(qmp_args, "driver", "piix3-usb-uhci");
         break;
     case 2:
-        libxl__qmp_param_add_string(gc, &qmp_args,
-                                    "driver", "usb-ehci");
+        flexarray_append_pair(qmp_args, "driver", "usb-ehci");
         break;
     case 3:
-        libxl__qmp_param_add_string(gc, &qmp_args,
-                                    "driver", "nec-usb-xhci");
-        libxl__qmp_param_add_string(gc, &qmp_args, "p2",
-                                    GCSPRINTF("%d", usbctrl->ports));
-        libxl__qmp_param_add_string(gc, &qmp_args, "p3",
-                                    GCSPRINTF("%d", usbctrl->ports));
+        flexarray_append_pair(qmp_args, "driver", "nec-usb-xhci");
+        flexarray_append_pair(qmp_args, "p2", GCSPRINTF("%d", usbctrl->ports));
+        flexarray_append_pair(qmp_args, "p3", GCSPRINTF("%d", usbctrl->ports));
         break;
     default:
-        abort(); /* Should not be possible. */
+        assert(0); /* Should not be possible. */
+        break;
     }
 
-    libxl__qmp_param_add_string(gc, &qmp_args, "id",
-                                GCSPRINTF("xenusb-%d", usbctrl->devid));
+    flexarray_append_pair(qmp_args, "id",
+                          GCSPRINTF("xenusb-%d", usbctrl->devid));
 
-    return libxl__ev_qmp_send(egc, qmp, "device_add", qmp_args);
+    return libxl__qmp_run_command_flexarray(gc, domid, "device_add", qmp_args);
 }
 
 /* Send qmp commands to delete a usb controller in qemu.  */
-static int libxl__device_usbctrl_del_hvm(libxl__egc *egc,
-                                         libxl__ev_qmp *qmp,
+static int libxl__device_usbctrl_del_hvm(libxl__gc *gc, uint32_t domid,
                                          int devid)
 {
-    EGC_GC;
-    libxl__json_object *qmp_args = NULL;
+    flexarray_t *qmp_args;
 
-    libxl__qmp_param_add_string(gc, &qmp_args,
-                                "id", GCSPRINTF("xenusb-%d", devid));
+    qmp_args = flexarray_make(gc, 2, 1);
+    flexarray_append_pair(qmp_args, "id", GCSPRINTF("xenusb-%d", devid));
 
-    return libxl__ev_qmp_send(egc, qmp, "device_del", qmp_args);
+    return libxl__qmp_run_command_flexarray(gc, domid, "device_del", qmp_args);
 }
 
 /* Send qmp commands to create a usb device in qemu. */
-static int libxl__device_usbdev_add_hvm(libxl__egc *egc, libxl__ev_qmp *qmp,
+static int libxl__device_usbdev_add_hvm(libxl__gc *gc, uint32_t domid,
                                         libxl_device_usbdev *usbdev)
 {
-    EGC_GC;
-    libxl__json_object *qmp_args = NULL;
+    flexarray_t *qmp_args;
 
-    libxl__qmp_param_add_string(gc, &qmp_args, "id",
-        GCSPRINTF("xenusb-%d-%d", usbdev->u.hostdev.hostbus,
-                  usbdev->u.hostdev.hostaddr));
-    libxl__qmp_param_add_string(gc, &qmp_args, "driver", "usb-host");
-    libxl__qmp_param_add_string(gc, &qmp_args, "bus",
-        GCSPRINTF("xenusb-%d.0", usbdev->ctrl));
-    libxl__qmp_param_add_string(gc, &qmp_args, "port",
-        GCSPRINTF("%d", usbdev->port));
-    libxl__qmp_param_add_string(gc, &qmp_args, "hostbus",
-        GCSPRINTF("%d", usbdev->u.hostdev.hostbus));
-    libxl__qmp_param_add_string(gc, &qmp_args, "hostaddr",
-        GCSPRINTF("%d", usbdev->u.hostdev.hostaddr));
+    qmp_args = flexarray_make(gc, 12, 1);
+    flexarray_append_pair(qmp_args, "id",
+                          GCSPRINTF("xenusb-%d-%d",
+                                    usbdev->u.hostdev.hostbus,
+                                    usbdev->u.hostdev.hostaddr));
+    flexarray_append_pair(qmp_args, "driver", "usb-host");
+    flexarray_append_pair(qmp_args, "bus",
+                          GCSPRINTF("xenusb-%d.0", usbdev->ctrl));
+    flexarray_append_pair(qmp_args, "port", GCSPRINTF("%d", usbdev->port));
+    flexarray_append_pair(qmp_args, "hostbus",
+                          GCSPRINTF("%d", usbdev->u.hostdev.hostbus));
+    flexarray_append_pair(qmp_args, "hostaddr",
+                          GCSPRINTF("%d", usbdev->u.hostdev.hostaddr));
 
-    return libxl__ev_qmp_send(egc, qmp, "device_add", qmp_args);
+    return libxl__qmp_run_command_flexarray(gc, domid, "device_add", qmp_args);
 }
 
 /* Send qmp commands to delete a usb device in qemu. */
-static int libxl__device_usbdev_del_hvm(libxl__egc *egc, libxl__ev_qmp *qmp,
+static int libxl__device_usbdev_del_hvm(libxl__gc *gc, uint32_t domid,
                                         libxl_device_usbdev *usbdev)
 {
-    EGC_GC;
-    libxl__json_object *qmp_args = NULL;
+    flexarray_t *qmp_args;
 
-    libxl__qmp_param_add_string(gc, &qmp_args, "id",
-        GCSPRINTF("xenusb-%d-%d", usbdev->u.hostdev.hostbus,
-                  usbdev->u.hostdev.hostaddr));
+    qmp_args = flexarray_make(gc, 2, 1);
+    flexarray_append_pair(qmp_args, "id",
+                          GCSPRINTF("xenusb-%d-%d",
+                                    usbdev->u.hostdev.hostbus,
+                                    usbdev->u.hostdev.hostaddr));
 
-    return libxl__ev_qmp_send(egc, qmp, "device_del", qmp_args);
+    return libxl__qmp_run_command_flexarray(gc, domid, "device_del", qmp_args);
 }
 
 static LIBXL_DEFINE_UPDATE_DEVID(usbctrl)
-
-static void device_usbctrl_add_timeout(libxl__egc *egc,
-    libxl__ev_time *ev, const struct timeval *requested_abs, int rc);
-static void device_usbctrl_add_qmp_cb(libxl__egc *egc,
-    libxl__ev_qmp *qmp, const libxl__json_object *r, int rc);
-static void device_usbctrl_add_done(libxl__egc *egc,
-    libxl__ao_device *aodev, int rc);
 
 /* AO operation to add a usb controller.
  *
@@ -462,10 +452,6 @@ static void libxl__device_usbctrl_add(libxl__egc *egc, uint32_t domid,
     libxl__device *device;
     int rc;
 
-    /* Store *usbctrl to be used by callbacks */
-    aodev->device_config = usbctrl;
-    aodev->device_type = &libxl__usbctrl_devtype;
-
     rc = libxl__device_usbctrl_setdefault(gc, domid, usbctrl,
                                           aodev->update_json);
     if (rc < 0) goto out;
@@ -480,25 +466,14 @@ static void libxl__device_usbctrl_add(libxl__egc *egc, uint32_t domid,
     GCNEW(device);
     rc = libxl__device_from_usbctrl(gc, domid, usbctrl, device);
     if (rc) goto outrm;
-    aodev->dev = device;
 
     if (device->backend_kind == LIBXL__DEVICE_KIND_NONE) {
-        libxl__ev_qmp *const qmp = &aodev->qmp;
-
-        rc = libxl__ev_time_register_rel(ao, &aodev->timeout,
-                                         device_usbctrl_add_timeout,
-                                         LIBXL_QMP_CMD_TIMEOUT * 1000);
+        rc = libxl__device_usbctrl_add_hvm(gc, domid, usbctrl);
         if (rc) goto outrm;
-
-        qmp->ao = ao;
-        qmp->domid = domid;
-        qmp->payload_fd = -1;
-        qmp->callback = device_usbctrl_add_qmp_cb;
-        rc = libxl__device_usbctrl_add_hvm(egc, qmp, usbctrl);
-        if (rc) goto outrm;
-        return;
+        goto out;
     }
 
+    aodev->dev = device;
     aodev->action = LIBXL__DEVICE_ACTION_ADD;
     libxl__wait_device_connection(egc, aodev);
     return;
@@ -506,45 +481,9 @@ static void libxl__device_usbctrl_add(libxl__egc *egc, uint32_t domid,
 outrm:
     libxl__device_usbctrl_del_xenstore(gc, domid, usbctrl);
 out:
-    device_usbctrl_add_done(egc, aodev, rc);
-}
-
-static void device_usbctrl_add_timeout(libxl__egc *egc, libxl__ev_time *ev,
-                                       const struct timeval *requested_abs,
-                                       int rc)
-{
-    EGC_GC;
-    libxl__ao_device *aodev = CONTAINER_OF(ev, *aodev, timeout);
-
-    if (rc == ERROR_TIMEDOUT)
-        LOGD(ERROR, aodev->dev->domid, "Adding usbctrl to QEMU timed out");
-    device_usbctrl_add_qmp_cb(egc, &aodev->qmp, NULL, rc);
-}
-
-static void device_usbctrl_add_qmp_cb(libxl__egc *egc,
-                                      libxl__ev_qmp *qmp,
-                                      const libxl__json_object *r,
-                                      int rc)
-{
-    EGC_GC;
-    libxl__ao_device *aodev = CONTAINER_OF(qmp, *aodev, qmp);
-    libxl_device_usbctrl *const usbctrl = aodev->device_config;
-
-    if (rc)
-        libxl__device_usbctrl_del_xenstore(gc, aodev->dev->domid, usbctrl);
-
-    device_usbctrl_add_done(egc, aodev, rc);
-}
-
-static void device_usbctrl_add_done(libxl__egc *egc,
-                                    libxl__ao_device *aodev,
-                                    int rc)
-{
-    EGC_GC;
-    libxl__ev_qmp_dispose(gc, &aodev->qmp);
-    libxl__ev_time_deregister(gc, &aodev->timeout);
     aodev->rc = rc;
     aodev->callback(egc, aodev);
+    return;
 }
 
 LIBXL_DEFINE_DEVICE_ADD(usbctrl)
@@ -556,22 +495,8 @@ static int libxl__device_usbdev_list_for_usbctrl(libxl__gc *gc, uint32_t domid,
                                                  libxl_device_usbdev **usbdevs,
                                                  int *num);
 
-static void libxl__device_usbdev_remove(libxl__egc *egc,
-    uint32_t domid, libxl_device_usbdev *usbdev, libxl__ao_device *aodev);
-
-static void device_usbctrl_usbdevs_removed(libxl__egc *,
-    libxl__multidev *, int rc);
-static void device_usbctrl_remove_timeout(libxl__egc *egc,
-    libxl__ev_time *ev, const struct timeval *requested_abs, int rc);
-static void device_usbctrl_remove_qmp_cb(libxl__egc *egc,
-    libxl__ev_qmp *qmp, const libxl__json_object *resp, int rc);
-static void device_usbctrl_remove_done(libxl__egc *egc,
-    libxl__ao_device *, int rc);
-
-typedef struct {
-    libxl__multidev multidev;
-    libxl__ao_device *aodev;
-} usbctrl_remove_state;
+static int libxl__device_usbdev_remove(libxl__gc *gc, uint32_t domid,
+                                       libxl_device_usbdev *usbdev);
 
 /* AO function to remove a usb controller.
  *
@@ -590,25 +515,17 @@ void libxl__initiate_device_usbctrl_remove(libxl__egc *egc,
     libxl_device_usbdev *usbdevs = NULL;
     int num_usbdev = 0;
     int i, rc;
-    uint32_t domid = aodev->dev->domid;
+    uint32_t domid = ao->domid;
     int usbctrl_devid = aodev->dev->devid;
-    libxl_device_usbctrl *usbctrl;
-    usbctrl_remove_state *ucrs;
+    libxl_device_usbctrl usbctrl;
+    libxl_usbctrlinfo usbctrlinfo;
 
-    GCNEW(ucrs);
-    ucrs->aodev = aodev;
-    ucrs->multidev.callback = device_usbctrl_usbdevs_removed;
-    libxl__multidev_begin(ao, &ucrs->multidev);
+    libxl_device_usbctrl_init(&usbctrl);
+    libxl_usbctrlinfo_init(&usbctrlinfo);
+    usbctrl.devid = usbctrl_devid;
 
-    GCNEW(usbctrl);
-    libxl_device_usbctrl_init(usbctrl);
-    rc = libxl_devid_to_device_usbctrl(CTX, domid, usbctrl_devid,
-                                       usbctrl);
+    rc = libxl_device_usbctrl_getinfo(CTX, domid, &usbctrl, &usbctrlinfo);
     if (rc) goto out;
-
-    /* Store *usbctrl to be used by callbacks */
-    aodev->device_config = usbctrl;
-    aodev->device_type = &libxl__usbctrl_devtype;
 
     /* Remove usb devices first */
     rc = libxl__device_usbdev_list_for_usbctrl(gc, domid, usbctrl_devid,
@@ -616,148 +533,115 @@ void libxl__initiate_device_usbctrl_remove(libxl__egc *egc,
     if (rc) goto out;
 
     for (i = 0; i < num_usbdev; i++) {
-        libxl__ao_device *usbdev_aodev =
-            libxl__multidev_prepare(&ucrs->multidev);
-        usbdev_aodev->action = LIBXL__DEVICE_ACTION_REMOVE;
-        libxl__device_usbdev_remove(egc, domid, &usbdevs[i], usbdev_aodev);
+        rc = libxl__device_usbdev_remove(gc, domid, &usbdevs[i]);
+        if (rc) {
+            LOGD(ERROR, domid, "libxl__device_usbdev_remove failed: controller %d, "
+                "port %d", usbdevs[i].ctrl, usbdevs[i].port);
+            goto out;
+        }
     }
 
-out:
-    libxl__multidev_prepared(egc, &ucrs->multidev, rc); /* must be last */
-}
-
-static void device_usbctrl_usbdevs_removed(libxl__egc *egc,
-                                           libxl__multidev *multidev,
-                                           int rc)
-{
-    usbctrl_remove_state *ucrs =
-        CONTAINER_OF(multidev, *ucrs, multidev);
-    libxl__ao_device *aodev = ucrs->aodev;
-    STATE_AO_GC(aodev->ao);
-    libxl_device_usbctrl *const usbctrl = aodev->device_config;
-
-    if (rc) goto out;
-
-    /* Remove usbctrl */
-    if (usbctrl->type == LIBXL_USBCTRL_TYPE_DEVICEMODEL) {
-        libxl__ev_qmp *const qmp = &aodev->qmp;
-
-        rc = libxl__ev_time_register_rel(ao, &aodev->timeout,
-                                         device_usbctrl_remove_timeout,
-                                         LIBXL_QMP_CMD_TIMEOUT * 1000);
-        if (rc) goto out;
-
-        qmp->ao = ao;
-        qmp->domid = aodev->dev->domid;
-        qmp->callback = device_usbctrl_remove_qmp_cb;
-        qmp->payload_fd = -1;
-        rc = libxl__device_usbctrl_del_hvm(egc, qmp, aodev->dev->devid);
-        if (rc) goto out;
-        return;
+    if (usbctrlinfo.type == LIBXL_USBCTRL_TYPE_DEVICEMODEL) {
+        rc = libxl__device_usbctrl_del_hvm(gc, domid, usbctrl_devid);
+        if (!rc)
+            libxl__device_usbctrl_del_xenstore(gc, domid, &usbctrl);
+        goto out;
     }
 
-    libxl_device_usbctrl_dispose(usbctrl);
+    libxl_device_usbctrl_dispose(&usbctrl);
+    libxl_usbctrlinfo_dispose(&usbctrlinfo);
 
     /* Remove usbctrl */
-    libxl__initiate_device_generic_remove(egc, aodev); /* must be last */
+    libxl__initiate_device_generic_remove(egc, aodev);
     return;
+
 out:
-    device_usbctrl_remove_done(egc, aodev, rc); /* must be last */
-}
-
-static void device_usbctrl_remove_timeout(libxl__egc *egc,
-    libxl__ev_time *ev, const struct timeval *requested_abs, int rc)
-{
-    EGC_GC;
-    libxl__ao_device *aodev = CONTAINER_OF(ev, *aodev, timeout);
-
-    if (rc == ERROR_TIMEDOUT)
-        LOGD(ERROR, aodev->dev->domid,
-             "Removing usbctrl from QEMU timed out");
-    device_usbctrl_remove_qmp_cb(egc, &aodev->qmp, NULL, rc);
-}
-
-static void device_usbctrl_remove_qmp_cb(libxl__egc *egc,
-                                         libxl__ev_qmp *qmp,
-                                         const libxl__json_object *resp,
-                                         int rc)
-{
-    EGC_GC;
-    libxl__ao_device *aodev = CONTAINER_OF(qmp, *aodev, qmp);
-    libxl_device_usbctrl *const usbctrl = aodev->device_config;
-
-    if (!rc)
-        libxl__device_usbctrl_del_xenstore(gc, aodev->dev->domid, usbctrl);
-
-    device_usbctrl_remove_done(egc, aodev, rc);
-}
-
-static void device_usbctrl_remove_done(libxl__egc *egc,
-                                       libxl__ao_device *aodev,
-                                       int rc)
-{
-    EGC_GC;
-    libxl_device_usbctrl *const usbctrl = aodev->device_config;
-
-    libxl_device_usbctrl_dispose(usbctrl);
-    libxl__ev_qmp_dispose(gc, &aodev->qmp);
-    libxl__ev_time_deregister(gc, &aodev->timeout);
-
+    libxl_device_usbctrl_dispose(&usbctrl);
+    libxl_usbctrlinfo_dispose(&usbctrlinfo);
     aodev->rc = rc;
     aodev->callback(egc, aodev);
+    return;
 }
 
-static int libxl__usbctrl_from_xenstore(libxl__gc *gc,
-                                        const char *libxl_path,
-                                        libxl_devid devid,
-                                        libxl_device_usbctrl *usbctrl_r)
+libxl_device_usbctrl *
+libxl_device_usbctrl_list(libxl_ctx *ctx, uint32_t domid, int *num)
 {
-    int rc;
-    const char *tmp;
-    const char *be_path;
+    GC_INIT(ctx);
+    libxl_device_usbctrl *usbctrls = NULL;
+    char *libxl_vusbs_path = NULL;
+    char **entry = NULL;
+    unsigned int nentries = 0;
+
+    *num = 0;
+
+    libxl_vusbs_path = GCSPRINTF("%s/device/%s",
+                     libxl__xs_libxl_path(gc, domid),
+                     libxl__device_kind_to_string(LIBXL__DEVICE_KIND_VUSB));
+    entry = libxl__xs_directory(gc, XBT_NULL, libxl_vusbs_path, &nentries);
+
+    if (entry && nentries) {
+        usbctrls = libxl__zalloc(NOGC, sizeof(*usbctrls) * nentries);
+        libxl_device_usbctrl *usbctrl;
+        libxl_device_usbctrl *end = usbctrls + nentries;
+        for (usbctrl = usbctrls;
+             usbctrl < end;
+             usbctrl++, entry++, (*num)++) {
+            const char *tmp, *be_path, *libxl_path;
+            int ret;
+
+            libxl_device_usbctrl_init(usbctrl);
+            usbctrl->devid = atoi(*entry);
 
 #define READ_SUBPATH(path, subpath) ({                                  \
-        rc = libxl__xs_read_checked(gc, XBT_NULL,                      \
+        ret = libxl__xs_read_checked(gc, XBT_NULL,                      \
                                      GCSPRINTF("%s/" subpath, path),    \
                                      &tmp);                             \
-        if (rc) goto out;                                              \
+        if (ret) goto out;                                              \
         (char *)tmp;                                                    \
     })
 
 #define READ_SUBPATH_INT(path, subpath) ({                              \
-        rc = libxl__xs_read_checked(gc, XBT_NULL,                      \
+        ret = libxl__xs_read_checked(gc, XBT_NULL,                      \
                                      GCSPRINTF("%s/" subpath, path),    \
                                      &tmp);                             \
-        if (rc) goto out;                                              \
+        if (ret) goto out;                                              \
         tmp ? atoi(tmp) : -1;                                           \
     })
 
-    usbctrl_r->devid = devid;
-    libxl_usbctrl_type_from_string(READ_SUBPATH(libxl_path, "type"),
-                                   &usbctrl_r->type);
-    if (usbctrl_r->type == LIBXL_USBCTRL_TYPE_DEVICEMODEL) {
-        be_path = libxl_path;
-        rc = libxl__get_domid(gc, &usbctrl_r->backend_domid);
-    } else {
-        be_path = READ_SUBPATH(libxl_path, "backend");
-        if (!be_path) goto out;
-        rc = libxl__backendpath_parse_domid(gc, be_path,
-                                             &usbctrl_r->backend_domid);
-    }
-    if (rc) goto out;
-    usbctrl_r->version = READ_SUBPATH_INT(be_path, "usb-ver");
-    usbctrl_r->ports = READ_SUBPATH_INT(be_path, "num-ports");
+            libxl_path = GCSPRINTF("%s/%s", libxl_vusbs_path, *entry);
+            libxl_usbctrl_type_from_string(READ_SUBPATH(libxl_path, "type"),
+                                           &usbctrl->type);
+            if (usbctrl->type == LIBXL_USBCTRL_TYPE_DEVICEMODEL) {
+                be_path = libxl_path;
+                ret = libxl__get_domid(gc, &usbctrl->backend_domid);
+            } else {
+                be_path = READ_SUBPATH(libxl_path, "backend");
+                if (!be_path) goto out;
+                ret = libxl__backendpath_parse_domid(gc, be_path,
+                                                     &usbctrl->backend_domid);
+            }
+            if (ret) goto out;
+            usbctrl->version = READ_SUBPATH_INT(be_path, "usb-ver");
+            usbctrl->ports = READ_SUBPATH_INT(be_path, "num-ports");
 
 #undef READ_SUBPATH
 #undef READ_SUBPATH_INT
+       }
+    }
+
+    GC_FREE;
+    return usbctrls;
+
 out:
-    if (rc)
-        libxl_device_usbctrl_dispose(usbctrl_r);
-    return rc;
+    LOGD(ERROR, domid, "Unable to list USB Controllers");
+    libxl_device_usbctrl_list_free(usbctrls, *num);
+    GC_FREE;
+    *num = 0;
+    return NULL;
 }
 
 int libxl_device_usbctrl_getinfo(libxl_ctx *ctx, uint32_t domid,
-                                 const libxl_device_usbctrl *usbctrl,
+                                 libxl_device_usbctrl *usbctrl,
                                  libxl_usbctrlinfo *usbctrlinfo)
 {
     GC_INIT(ctx);
@@ -794,7 +678,7 @@ int libxl_device_usbctrl_getinfo(libxl_ctx *ctx, uint32_t domid,
         be_path = READ_SUBPATH(libxl_path, "backend");
         usbctrlinfo->backend = libxl__strdup(NOGC, be_path);
         rc = libxl__backendpath_parse_domid(gc, be_path,
-                                            &usbctrlinfo->backend_id);
+                                            &usbctrl->backend_domid);
         if (rc) goto out;
         usbctrlinfo->state = READ_SUBPATH_INT(fe_path, "state");
         usbctrlinfo->evtch = READ_SUBPATH_INT(fe_path, "event-channel");
@@ -807,7 +691,7 @@ int libxl_device_usbctrl_getinfo(libxl_ctx *ctx, uint32_t domid,
     } else {
         usbctrlinfo->ports = READ_SUBPATH_INT(libxl_path, "num-ports");
         usbctrlinfo->version = READ_SUBPATH_INT(libxl_path, "usb-ver");
-        rc = libxl__get_domid(gc, &usbctrlinfo->backend_id);
+        rc = libxl__get_domid(gc, &usbctrl->backend_domid);
         if (rc) goto out;
     }
 
@@ -821,6 +705,30 @@ out:
     return rc;
 }
 
+int libxl_devid_to_device_usbctrl(libxl_ctx *ctx,
+                                  uint32_t domid,
+                                  int devid,
+                                  libxl_device_usbctrl *usbctrl)
+{
+    libxl_device_usbctrl *usbctrls;
+    int nb = 0;
+    int i, rc;
+
+    usbctrls = libxl_device_usbctrl_list(ctx, domid, &nb);
+    if (!usbctrls) return ERROR_FAIL;
+
+    rc = ERROR_FAIL;
+    for (i = 0; i < nb; i++) {
+        if (devid == usbctrls[i].devid) {
+            libxl_device_usbctrl_copy(ctx, usbctrl, &usbctrls[i]);
+            rc = 0;
+            break;
+        }
+    }
+
+    libxl_device_usbctrl_list_free(usbctrls, nb);
+    return rc;
+}
 
 static char *usbdev_busaddr_to_busid(libxl__gc *gc, int bus, int addr)
 {
@@ -1266,7 +1174,7 @@ static int libxl__device_usbdev_add_xenstore(libxl__gc *gc, uint32_t domid,
     xs_transaction_t t = XBT_NULL;
     libxl_domain_config d_config;
     libxl_device_usbdev usbdev_saved;
-    libxl__flock *lock = NULL;
+    libxl__domain_userdata_lock *lock = NULL;
 
     libxl_domain_config_init(&d_config);
     libxl_device_usbdev_init(&usbdev_saved);
@@ -1323,7 +1231,7 @@ static int libxl__device_usbdev_add_xenstore(libxl__gc *gc, uint32_t domid,
     rc = 0;
 
 out:
-    if (lock) libxl__unlock_file(lock);
+    if (lock) libxl__unlock_domain_userdata(lock);
     libxl_device_usbdev_dispose(&usbdev_saved);
     libxl_domain_config_dispose(&d_config);
     return rc;
@@ -1668,12 +1576,76 @@ out:
     return rc;
 }
 
-static void device_usbdev_add_qmp_cb(libxl__egc *egc,
-    libxl__ev_qmp *qmp, const libxl__json_object *r, int rc);
-static void device_usbdev_add_timeout(libxl__egc *egc,
-    libxl__ev_time *ev, const struct timeval *requested_abs, int rc);
-static void device_usbdev_add_done(libxl__egc *egc,
-    libxl__ao_device *aodev, int rc);
+static int do_usbdev_add(libxl__gc *gc, uint32_t domid,
+                         libxl_device_usbdev *usbdev,
+                         bool update_json)
+{
+    int rc;
+    char *busid;
+    libxl_device_usbctrl usbctrl;
+    libxl_usbctrlinfo usbctrlinfo;
+
+    libxl_device_usbctrl_init(&usbctrl);
+    libxl_usbctrlinfo_init(&usbctrlinfo);
+    usbctrl.devid = usbdev->ctrl;
+
+    rc = libxl_device_usbctrl_getinfo(CTX, domid, &usbctrl, &usbctrlinfo);
+    if (rc) goto out;
+
+    switch (usbctrlinfo.type) {
+    case LIBXL_USBCTRL_TYPE_PV:
+        busid = usbdev_busaddr_to_busid(gc, usbdev->u.hostdev.hostbus,
+                                        usbdev->u.hostdev.hostaddr);
+        if (!busid) {
+            rc = ERROR_FAIL;
+            goto out;
+        }
+
+        rc = libxl__device_usbdev_add_xenstore(gc, domid, usbdev,
+                                               LIBXL_USBCTRL_TYPE_PV,
+                                               update_json);
+        if (rc) goto out;
+
+        rc = usbback_dev_assign(gc, busid);
+        if (rc) {
+            libxl__device_usbdev_remove_xenstore(gc, domid, usbdev,
+                                                 LIBXL_USBCTRL_TYPE_PV);
+            goto out;
+        }
+        break;
+    case LIBXL_USBCTRL_TYPE_QUSB:
+        rc = libxl__device_usbdev_add_xenstore(gc, domid, usbdev,
+                                               LIBXL_USBCTRL_TYPE_QUSB,
+                                               update_json);
+        if (rc) goto out;
+
+        break;
+    case LIBXL_USBCTRL_TYPE_DEVICEMODEL:
+        rc = libxl__device_usbdev_add_xenstore(gc, domid, usbdev,
+                                               LIBXL_USBCTRL_TYPE_DEVICEMODEL,
+                                               update_json);
+        if (rc) goto out;
+
+        rc = libxl__device_usbdev_add_hvm(gc, domid, usbdev);
+        if (rc) {
+            libxl__device_usbdev_remove_xenstore(gc, domid, usbdev,
+                                             LIBXL_USBCTRL_TYPE_DEVICEMODEL);
+            goto out;
+        }
+        break;
+    default:
+        LOGD(ERROR, domid, "Unsupported usb controller type");
+        rc = ERROR_FAIL;
+        goto out;
+    }
+
+    rc = 0;
+
+out:
+    libxl_device_usbctrl_dispose(&usbctrl);
+    libxl_usbctrlinfo_dispose(&usbctrlinfo);
+    return rc;
+}
 
 /* AO operation to add a usb device.
  *
@@ -1700,31 +1672,26 @@ static void libxl__device_usbdev_add(libxl__egc *egc, uint32_t domid,
     libxl_device_usbdev *assigned;
     int num_assigned;
     libxl_device_usbctrl usbctrl;
-    char *busid;
-    bool has_callback = false;
+    libxl_usbctrlinfo usbctrlinfo;
 
     libxl_device_usbctrl_init(&usbctrl);
-
-    /* Store *usbdev to be used by callbacks */
-    aodev->device_config = usbdev;
-    aodev->device_type = &libxl__usbdev_devtype;
+    libxl_usbctrlinfo_init(&usbctrlinfo);
 
     /* Currently only support adding USB device from Dom0 backend.
      * So, if USB controller is specified, check its backend domain,
      * if it's not Dom0, report error.
      */
     if (usbdev->ctrl != -1) {
-        rc = libxl_devid_to_device_usbctrl(CTX, domid, usbdev->ctrl,
-                                           &usbctrl);
+        usbctrl.devid = usbdev->ctrl;
+        rc = libxl_device_usbctrl_getinfo(CTX, domid, &usbctrl, &usbctrlinfo);
         if (rc) goto out;
 
-        if (usbctrl.backend_domid != LIBXL_TOOLSTACK_DOMID) {
+        if (usbctrlinfo.backend_id != LIBXL_TOOLSTACK_DOMID) {
             LOGD(ERROR, domid,
                  "Don't support adding USB device from non-Dom0 backend");
             rc = ERROR_INVAL;
             goto out;
         }
-        libxl_device_usbctrl_dispose(&usbctrl);
     }
 
     /* check usb device is assignable type */
@@ -1754,174 +1721,38 @@ static void libxl__device_usbdev_add(libxl__egc *egc, uint32_t domid,
                                          aodev->update_json);
     if (rc) goto out;
 
-    rc = libxl_devid_to_device_usbctrl(CTX, domid, usbdev->ctrl, &usbctrl);
-    if (rc) goto out;
-
     /* do actual adding usb device operation */
-    switch (usbctrl.type) {
-    case LIBXL_USBCTRL_TYPE_PV:
-        busid = usbdev_busaddr_to_busid(gc, usbdev->u.hostdev.hostbus,
-                                        usbdev->u.hostdev.hostaddr);
-        if (!busid) {
-            rc = ERROR_FAIL;
-            goto out;
-        }
-
-        rc = libxl__device_usbdev_add_xenstore(gc, domid, usbdev,
-                                               LIBXL_USBCTRL_TYPE_PV,
-                                               aodev->update_json);
-        if (rc) goto out;
-
-        rc = usbback_dev_assign(gc, busid);
-        if (rc) {
-            libxl__device_usbdev_remove_xenstore(gc, domid, usbdev,
-                                                 LIBXL_USBCTRL_TYPE_PV);
-            goto out;
-        }
-        break;
-    case LIBXL_USBCTRL_TYPE_QUSB:
-        rc = libxl__device_usbdev_add_xenstore(gc, domid, usbdev,
-                                               LIBXL_USBCTRL_TYPE_QUSB,
-                                               aodev->update_json);
-        if (rc) goto out;
-
-        break;
-    case LIBXL_USBCTRL_TYPE_DEVICEMODEL:
-        rc = libxl__device_usbdev_add_xenstore(gc, domid, usbdev,
-                                               LIBXL_USBCTRL_TYPE_DEVICEMODEL,
-                                               aodev->update_json);
-        if (rc) goto out;
-
-        rc = libxl__ev_time_register_rel(ao, &aodev->timeout,
-                                         device_usbdev_add_timeout,
-                                         LIBXL_QMP_CMD_TIMEOUT * 1000);
-        if (rc) goto out;
-
-        aodev->qmp.ao = ao;
-        aodev->qmp.domid = domid;
-        aodev->qmp.callback = device_usbdev_add_qmp_cb;
-        aodev->qmp.payload_fd = -1;
-        rc = libxl__device_usbdev_add_hvm(egc, &aodev->qmp, usbdev);
-        if (rc) {
-            libxl__device_usbdev_remove_xenstore(gc, domid, usbdev,
-                                             LIBXL_USBCTRL_TYPE_DEVICEMODEL);
-            goto out;
-        }
-        has_callback = true;
-        break;
-    default:
-        LOGD(ERROR, domid, "Unsupported usb controller type");
-        rc = ERROR_FAIL;
-        goto out;
-    }
-
-    rc = 0;
+    rc = do_usbdev_add(gc, domid, usbdev, aodev->update_json);
 
 out:
     libxl_device_usbctrl_dispose(&usbctrl);
-    /* Only call _done if no callback have been setup */
-    if (!has_callback)
-        device_usbdev_add_done(egc, aodev, rc); /* must be last */
-}
-
-static void device_usbdev_add_timeout(libxl__egc *egc,
-                                      libxl__ev_time *ev,
-                                      const struct timeval *requested_abs,
-                                      int rc)
-{
-    EGC_GC;
-    libxl__ao_device *aodev = CONTAINER_OF(ev, *aodev, timeout);
-
-    if (rc == ERROR_TIMEDOUT)
-        LOGD(ERROR, aodev->qmp.domid,
-             "Adding usbdev to QEMU timed out");
-    device_usbdev_add_qmp_cb(egc, &aodev->qmp, NULL, rc);
-}
-
-static void device_usbdev_add_qmp_cb(libxl__egc *egc,
-                                     libxl__ev_qmp *qmp,
-                                     const libxl__json_object *r,
-                                     int rc)
-{
-    EGC_GC;
-    libxl__ao_device *aodev = CONTAINER_OF(qmp, *aodev, qmp);
-    libxl_device_usbdev *const usbdev = aodev->device_config;
-
-    if (rc)
-        libxl__device_usbdev_remove_xenstore(gc, qmp->domid,
-            usbdev, LIBXL_USBCTRL_TYPE_DEVICEMODEL);
-    device_usbdev_add_done(egc, aodev, rc); /* must be last */
-}
-
-static void device_usbdev_add_done(libxl__egc *egc,
-                                   libxl__ao_device *aodev,
-                                   int rc)
-{
-    EGC_GC;
-
-    libxl__ev_time_deregister(gc, &aodev->timeout);
-    libxl__ev_qmp_dispose(gc, &aodev->qmp);
+    libxl_usbctrlinfo_dispose(&usbctrlinfo);
     aodev->rc = rc;
     aodev->callback(egc, aodev);
+    return;
 }
 
 LIBXL_DEFINE_DEVICE_ADD(usbdev)
 static LIBXL_DEFINE_DEVICES_ADD(usbdev)
 
-static void device_usbdev_remove_timeout(libxl__egc *egc,
-    libxl__ev_time *ev, const struct timeval *requested_abs, int rc);
-static void device_usbdev_remove_qmp_cb(libxl__egc *egc,
-    libxl__ev_qmp *qmp, const libxl__json_object *r, int rc);
-static void device_usbdev_remove_done(libxl__egc *egc,
-    libxl__ao_device *aodev, int rc);
-
-/* Operation to remove usb device.
- *
- * Generally, it does:
- * 1) check if the usb device is assigned to the domain
- * 2) remove the usb device from xenstore controller/port.
- * 3) unbind usb device from usbback and rebind to its original driver.
- *    If usb device has many interfaces, do it to each interface.
- *
- * Before calling this function, aodev should be properly filled:
- * aodev->ao, aodev->callback, ...
- */
-static void libxl__device_usbdev_remove(libxl__egc *egc, uint32_t domid,
-                                        libxl_device_usbdev *usbdev,
-                                        libxl__ao_device *aodev)
+static int do_usbdev_remove(libxl__gc *gc, uint32_t domid,
+                            libxl_device_usbdev *usbdev)
 {
-    STATE_AO_GC(aodev->ao);
     int rc;
     char *busid;
     libxl_device_usbctrl usbctrl;
-    bool has_callback = false;
-
-    /* Store *usbdev to be used by callbacks */
-    aodev->device_config = usbdev;
-    aodev->device_type = &libxl__usbdev_devtype;
+    libxl_usbctrlinfo usbctrlinfo;
 
     libxl_device_usbctrl_init(&usbctrl);
+    libxl_usbctrlinfo_init(&usbctrlinfo);
+    usbctrl.devid = usbdev->ctrl;
 
-    if (usbdev->ctrl < 0 || usbdev->port < 1) {
-        LOGD(ERROR, domid, "Invalid USB device");
-        rc = ERROR_FAIL;
-        goto out;
-    }
-
-    rc = libxl_devid_to_device_usbctrl(CTX, domid, usbdev->ctrl, &usbctrl);
+    rc = libxl_device_usbctrl_getinfo(CTX, domid, &usbctrl, &usbctrlinfo);
     if (rc) goto out;
 
-    if (usbctrl.backend_domid != LIBXL_TOOLSTACK_DOMID) {
-        LOGD(ERROR, domid,
-             "Don't support removing USB device from non-Dom0 backend");
-        rc = ERROR_INVAL;
-        goto out;
-    }
-
-    /* do actual removing usb device operation */
-    switch (usbctrl.type) {
+    switch (usbctrlinfo.type) {
     case LIBXL_USBCTRL_TYPE_PV:
-        busid = usbdev_busid_from_ctrlport(gc, domid, usbdev, usbctrl.type);
+        busid = usbdev_busid_from_ctrlport(gc, domid, usbdev, usbctrlinfo.type);
         if (!busid) {
             rc = ERROR_FAIL;
             goto out;
@@ -1974,23 +1805,14 @@ static void libxl__device_usbdev_remove(libxl__egc *egc, uint32_t domid,
                                               LIBXL_USBCTRL_TYPE_DEVICEMODEL);
         if (rc) goto out;
 
-        rc = libxl__ev_time_register_rel(ao, &aodev->timeout,
-                                         device_usbdev_remove_timeout,
-                                         LIBXL_QMP_CMD_TIMEOUT * 1000);
-        if (rc) goto out;
-
-        aodev->qmp.ao = ao;
-        aodev->qmp.domid = domid;
-        aodev->qmp.callback = device_usbdev_remove_qmp_cb;
-        aodev->qmp.payload_fd = -1;
-        rc = libxl__device_usbdev_del_hvm(egc, &aodev->qmp, usbdev);
+        rc = libxl__device_usbdev_del_hvm(gc, domid, usbdev);
         if (rc) {
             libxl__device_usbdev_add_xenstore(gc, domid, usbdev,
                                               LIBXL_USBCTRL_TYPE_DEVICEMODEL,
                                               false);
             goto out;
         }
-        has_callback = true;
+
         break;
     default:
         LOGD(ERROR, domid, "Unsupported usb controller type");
@@ -2002,51 +1824,51 @@ static void libxl__device_usbdev_remove(libxl__egc *egc, uint32_t domid,
 
 out:
     libxl_device_usbctrl_dispose(&usbctrl);
-    /* Only call _done if no callback have been setup */
-    if (!has_callback)
-        device_usbdev_remove_done(egc, aodev, rc); /* must be last */
+    libxl_usbctrlinfo_dispose(&usbctrlinfo);
+    return rc;
 }
 
-static void device_usbdev_remove_timeout(libxl__egc *egc,
-    libxl__ev_time *ev, const struct timeval *requested_abs, int rc)
+/* Operation to remove usb device.
+ *
+ * Generally, it does:
+ * 1) check if the usb device is assigned to the domain
+ * 2) remove the usb device from xenstore controller/port.
+ * 3) unbind usb device from usbback and rebind to its original driver.
+ *    If usb device has many interfaces, do it to each interface.
+ */
+static int libxl__device_usbdev_remove(libxl__gc *gc, uint32_t domid,
+                                       libxl_device_usbdev *usbdev)
 {
-    EGC_GC;
-    libxl__ao_device *aodev = CONTAINER_OF(ev, *aodev, timeout);
+    libxl_usbctrlinfo usbctrlinfo;
+    libxl_device_usbctrl usbctrl;
+    int rc;
 
-    if (rc == ERROR_TIMEDOUT)
-        LOGD(ERROR, aodev->qmp.domid,
-             "Removing usbdev from QEMU timed out");
-    device_usbdev_remove_qmp_cb(egc, &aodev->qmp, NULL, rc);
-}
-
-static void device_usbdev_remove_qmp_cb(libxl__egc *egc,
-                                        libxl__ev_qmp *qmp,
-                                        const libxl__json_object *r,
-                                        int rc)
-{
-    EGC_GC;
-    libxl__ao_device *aodev = CONTAINER_OF(qmp, *aodev, qmp);
-    libxl_device_usbdev *const usbdev = aodev->device_config;
-
-    if (rc) {
-        libxl__device_usbdev_add_xenstore(gc, qmp->domid, usbdev,
-                                          LIBXL_USBCTRL_TYPE_DEVICEMODEL,
-                                          false);
+    if (usbdev->ctrl < 0 || usbdev->port < 1) {
+        LOGD(ERROR, domid, "Invalid USB device");
+        return ERROR_FAIL;
     }
 
-    device_usbdev_remove_done(egc, aodev, rc); /* must be last */
-}
+    libxl_device_usbctrl_init(&usbctrl);
+    libxl_usbctrlinfo_init(&usbctrlinfo);
+    usbctrl.devid = usbdev->ctrl;
 
-static void device_usbdev_remove_done(libxl__egc *egc,
-                                      libxl__ao_device *aodev,
-                                      int rc)
-{
-    EGC_GC;
+    rc = libxl_device_usbctrl_getinfo(CTX, domid, &usbctrl, &usbctrlinfo);
+    if (rc) goto out;
 
-    libxl__ev_time_deregister(gc, &aodev->timeout);
-    libxl__ev_qmp_dispose(gc, &aodev->qmp);
-    aodev->rc = rc;
-    aodev->callback(egc, aodev);
+    if (usbctrlinfo.backend_id != LIBXL_TOOLSTACK_DOMID) {
+        LOGD(ERROR, domid,
+             "Don't support removing USB device from non-Dom0 backend");
+        rc = ERROR_INVAL;
+        goto out;
+    }
+
+    /* do actual removing usb device operation */
+    rc = do_usbdev_remove(gc, domid, usbdev);
+
+out:
+    libxl_device_usbctrl_dispose(&usbctrl);
+    libxl_usbctrlinfo_dispose(&usbctrlinfo);
+    return rc;
 }
 
 int libxl_device_usbdev_remove(libxl_ctx *ctx, uint32_t domid,
@@ -2055,14 +1877,11 @@ int libxl_device_usbdev_remove(libxl_ctx *ctx, uint32_t domid,
 
 {
     AO_CREATE(ctx, domid, ao_how);
-    libxl__ao_device *aodev;
+    int rc;
 
-    GCNEW(aodev);
-    libxl__prepare_ao_device(ao, aodev);
-    aodev->action = LIBXL__DEVICE_ACTION_REMOVE;
-    aodev->callback = device_addrm_aocomplete;
-    libxl__device_usbdev_remove(egc, domid, usbdev, aodev);
+    rc = libxl__device_usbdev_remove(gc, domid, usbdev);
 
+    libxl__ao_complete(egc, ao, rc);
     return AO_INPROGRESS;
 }
 
@@ -2106,8 +1925,8 @@ out:
     return rc;
 }
 
-static int libxl_device_usbctrl_compare(const libxl_device_usbctrl *d1,
-                                        const libxl_device_usbctrl *d2)
+static int libxl_device_usbctrl_compare(libxl_device_usbctrl *d1,
+                                        libxl_device_usbctrl *d2)
 {
     return COMPARE_USBCTRL(d1, d2);
 }
@@ -2120,10 +1939,19 @@ static int libxl_device_usbctrl_dm_needed(void *e, unsigned domid)
            elem->backend_domid == domid;
 }
 
-static int libxl_device_usbdev_compare(const libxl_device_usbdev *d1,
-                                       const libxl_device_usbdev *d2)
+static int libxl_device_usbdev_compare(libxl_device_usbdev *d1,
+                                       libxl_device_usbdev *d2)
 {
     return COMPARE_USB(d1, d2);
+}
+
+void libxl_device_usbctrl_list_free(libxl_device_usbctrl *list, int nr)
+{
+   int i;
+
+   for (i = 0; i < nr; i++)
+       libxl_device_usbctrl_dispose(&list[i]);
+   free(list);
 }
 
 void libxl_device_usbdev_list_free(libxl_device_usbdev *list, int nr)
@@ -2137,10 +1965,7 @@ void libxl_device_usbdev_list_free(libxl_device_usbdev *list, int nr)
 
 #define libxl__device_usbctrl_update_devid NULL
 
-LIBXL_DEFINE_DEVID_TO_DEVICE(usbctrl)
-LIBXL_DEFINE_DEVICE_LIST(usbctrl)
 DEFINE_DEVICE_TYPE_STRUCT(usbctrl, VUSB,
-    .from_xenstore = (device_from_xenstore_fn_t)libxl__usbctrl_from_xenstore,
     .dm_needed = libxl_device_usbctrl_dm_needed
 );
 

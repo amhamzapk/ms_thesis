@@ -20,7 +20,6 @@
 
 #include <xen/lib.h>
 #include <xen/mm.h>
-#include <xen/param.h>
 #include <xen/sched.h>
 #include <xen/sizes.h>
 #include <xen/warning.h>
@@ -31,7 +30,6 @@
 #include <asm/gic_v3_its.h>
 #include <asm/io.h>
 #include <asm/page.h>
-#include <asm/sysregs.h>
 
 /*
  * There could be a lot of LPIs on the host side, and they always go to
@@ -393,14 +391,14 @@ int gicv3_lpi_init_host_lpis(unsigned int host_lpi_bits)
         printk(XENLOG_WARNING "WARNING: max_lpi_bits must be between 14 and 32, adjusting.\n");
 
     max_lpi_bits = max(max_lpi_bits, 14U);
-    lpi_data.max_host_lpi_ids = BIT(min(host_lpi_bits, max_lpi_bits), UL);
+    lpi_data.max_host_lpi_ids = BIT(min(host_lpi_bits, max_lpi_bits));
 
     /*
      * Warn if the number of LPIs are quite high, as the user might not want
      * to waste megabytes of memory for a mostly empty table.
      * It's very unlikely that we need more than 24 bits worth of LPIs.
      */
-    if ( lpi_data.max_host_lpi_ids > BIT(24, UL) )
+    if ( lpi_data.max_host_lpi_ids > BIT(24) )
         warning_add("Using high number of LPIs, limit memory usage with max_lpi_bits\n");
 
     spin_lock_init(&lpi_data.host_lpis_lock);

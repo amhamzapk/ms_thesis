@@ -17,6 +17,7 @@
  * GNU General Public License for more details.
  */
 
+#include <asm/p2m.h>
 #include <asm/platform.h>
 #include <asm/platforms/omap5.h>
 #include <xen/mm.h>

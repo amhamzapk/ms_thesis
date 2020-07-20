@@ -1,4 +1,4 @@
-% libxenlight Domain Image Format
+% LibXenLight Domain Image Format
 % Andrew Cooper <<andrew.cooper3@citrix.com>>
   Wen Congyang <<wency@cn.fujitsu.com>>
   Yang Hongyang <<hongyang.yang@easystack.cn>>
@@ -182,8 +182,8 @@ in the stream.
 
 The end record contains no fields; its body_length is 0.
 
-LIBXC_CONTEXT
--------------
+LIBXC\_CONTEXT
+--------------
 
 A libxc context record is a marker, indicating that the stream should be
 handed to `xc_domain_restore()`.  `libxc` shall be responsible for reading its
@@ -199,8 +199,8 @@ The libxc context record contains no fields; its body_length is 0[^1].
 might write into the stream, especially for live migration where the quantity
 of data is partially proportional to the elapsed time.
 
-EMULATOR_XENSTORE_DATA
-----------------------
+EMULATOR\_XENSTORE\_DATA
+------------------------
 
 A set of xenstore key/value pairs for a specific emulator associated with the
 domain.
@@ -226,7 +226,7 @@ domain.  At the time of writing, keys are relative to the path
 although this path is free to change moving forward, thus should not be
 assumed.
 
-EMULATOR_CONTEXT
+EMULATOR\_CONTEXT
 ----------------
 
 A context blob for a specific emulator associated with the domain.
@@ -242,8 +242,8 @@ A context blob for a specific emulator associated with the domain.
 The *emulator_ctx* is a binary blob interpreted by the emulator identified by
 *emulator_id*.  Its format is unspecified.
 
-CHECKPOINT_END
---------------
+CHECKPOINT\_END
+---------------
 
 A checkpoint end record marks the end of a checkpoint in the image.
 
@@ -253,8 +253,8 @@ A checkpoint end record marks the end of a checkpoint in the image.
 The end record contains no fields; its body_length is 0.
 
 
-CHECKPOINT_STATE
-----------------
+CHECKPOINT\_STATE
+--------------
 
 A checkpoint state record contains the control information for checkpoint. It
 is only used by COLO, more detail please reference README.colo.
@@ -282,26 +282,26 @@ In COLO, Primary is running in below loop:
 
 1. Suspend primary vm
     a. Suspend primary vm
-    b. Read *CHECKPOINT_SVM_SUSPENDED* sent by secondary
+    b. Read _CHECKPOINT\_SVM\_SUSPENDED_ sent by secondary
 2. Checkpoint
 3. Resume primary vm
-    a. Read *CHECKPOINT_SVM_READY* from secondary
+    a. Read _CHECKPOINT\_SVM\_READY_ from secondary
     b. Resume primary vm
-    c. Read *CHECKPOINT_SVM_RESUMED* from secondary
+    c. Read _CHECKPOINT\_SVM\_RESUMED_ from secondary
 4. Wait a new checkpoint
-    a. Send *CHECKPOINT_NEW* to secondary
+    a. Send _CHECKPOINT\_NEW_ to secondary
 
 While Secondary is running in below loop:
 
 1. Resume secondary vm
-    a. Send *CHECKPOINT_SVM_READY* to primary
+    a. Send _CHECKPOINT\_SVM\_READY_ to primary
     b. Resume secondary vm
-    c. Send *CHECKPOINT_SVM_RESUMED* to primary
+    c. Send _CHECKPOINT\_SVM\_RESUMED_ to primary
 2. Wait a new checkpoint
-    a. Read *CHECKPOINT_NEW* from primary
+    a. Read _CHECKPOINT\_NEW_ from primary
 3. Suspend secondary vm
     a. Suspend secondary vm
-    b. Send *CHECKPOINT_SVM_SUSPENDED* to primary
+    b. Send _CHECKPOINT\_SVM\_SUSPENDED_ to primary
 4. Checkpoint
 
 Future Extensions

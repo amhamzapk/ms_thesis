@@ -53,15 +53,14 @@ static void lfb_show_line(
 }
 
 /* Fast mode which redraws all modified parts of a 2D text buffer. */
-void lfb_redraw_puts(const char *s, size_t nr)
+void lfb_redraw_puts(const char *s)
 {
     unsigned int i, min_redraw_y = lfb.ypos;
+    char c;
 
     /* Paste characters into text buffer. */
-    for ( ; nr > 0; nr--, s++ )
+    while ( (c = *s++) != '\0' )
     {
-        char c = *s;
-
         if ( (c == '\n') || (lfb.xpos >= lfb.lfbp.text_columns) )
         {
             if ( ++lfb.ypos >= lfb.lfbp.text_rows )
@@ -98,14 +97,13 @@ void lfb_redraw_puts(const char *s, size_t nr)
 }
 
 /* Slower line-based scroll mode which interacts better with dom0. */
-void lfb_scroll_puts(const char *s, size_t nr)
+void lfb_scroll_puts(const char *s)
 {
     unsigned int i;
+    char c;
 
-    for ( ; nr > 0; nr--, s++ )
+    while ( (c = *s++) != '\0' )
     {
-        char c = *s;
-
         if ( (c == '\n') || (lfb.xpos >= lfb.lfbp.text_columns) )
         {
             unsigned int bytes = (lfb.lfbp.width *

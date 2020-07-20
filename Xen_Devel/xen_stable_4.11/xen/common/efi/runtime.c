@@ -27,6 +27,8 @@ struct efi_rs_state {
 struct efi_rs_state efi_rs_enter(void);
 void efi_rs_leave(struct efi_rs_state *);
 
+const CHAR16 *wmemchr(const CHAR16 *s, CHAR16 c, UINTN n);
+
 #ifndef COMPAT
 
 #ifndef CONFIG_ARM
@@ -104,7 +106,7 @@ struct efi_rs_state efi_rs_enter(void)
     {
         struct desc_ptr gdt_desc = {
             .limit = LAST_RESERVED_GDT_BYTE,
-            .base  = (unsigned long)(per_cpu(gdt, smp_processor_id()) -
+            .base  = (unsigned long)(per_cpu(gdt_table, smp_processor_id()) -
                                      FIRST_RESERVED_GDT_ENTRY)
         };
 
@@ -222,9 +224,12 @@ int efi_get_info(uint32_t idx, union xenpf_efi_info *info)
         break;
     case XEN_FW_EFI_RT_VERSION:
     {
-        if ( !efi_enabled(EFI_RS) )
+        struct efi_rs_state state = efi_rs_enter();
+
+        if ( !state.cr3 )
             return -EOPNOTSUPP;
         info->version = efi_rs->Hdr.Revision;
+        efi_rs_leave(&state);
         break;
     }
     case XEN_FW_EFI_CONFIG_TABLE:
@@ -636,11 +641,12 @@ int efi_runtime_call(struct xenpf_efi_runtime_call *op)
             break;
         }
 
-        if ( !efi_enabled(EFI_RS) || (efi_rs->Hdr.Revision >> 16) < 2 )
-            return -EOPNOTSUPP;
         state = efi_rs_enter();
-        if ( !state.cr3 )
+        if ( !state.cr3 || (efi_rs->Hdr.Revision >> 16) < 2 )
+        {
+            efi_rs_leave(&state);
             return -EOPNOTSUPP;
+        }
         status = efi_rs->QueryVariableInfo(
             op->u.query_variable_info.attr,
             &op->u.query_variable_info.max_store_size,
@@ -654,8 +660,13 @@ int efi_runtime_call(struct xenpf_efi_runtime_call *op)
         if ( op->misc )
             return -EINVAL;
 
-        if ( !efi_enabled(EFI_RS) || (efi_rs->Hdr.Revision >> 16) < 2 )
+        state = efi_rs_enter();
+        if ( !state.cr3 || (efi_rs->Hdr.Revision >> 16) < 2 )
+        {
+            efi_rs_leave(&state);
             return -EOPNOTSUPP;
+        }
+        efi_rs_leave(&state);
         /* XXX fall through for now */
     default:
         return -ENOSYS;

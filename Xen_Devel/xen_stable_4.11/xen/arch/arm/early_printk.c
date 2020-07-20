@@ -17,10 +17,9 @@
 void early_putch(char c);
 void early_flush(void);
 
-void early_puts(const char *s, size_t nr)
+void early_puts(const char *s)
 {
-    while ( nr-- > 0 )
-    {
+    while (*s != '\0') {
         if (*s == '\n')
             early_putch('\r');
         early_putch(*s);

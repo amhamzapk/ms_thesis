@@ -211,7 +211,6 @@ int libxl__carefd_fd(const libxl__carefd *cf)
 /* Like waitpid(,,WNOHANG) but handles all errors except ECHILD. */
 static pid_t checked_waitpid(libxl__egc *egc, pid_t want, int *status)
 {
-    EGC_GC;
     for (;;) {
         pid_t got = waitpid(want, status, WNOHANG);
         if (got != -1)
@@ -220,7 +219,7 @@ static pid_t checked_waitpid(libxl__egc *egc, pid_t want, int *status)
             return got;
         if (errno == EINTR)
             continue;
-        LIBXL__EVENT_DISASTER(gc, "waitpid() failed", errno, 0);
+        LIBXL__EVENT_DISASTER(egc, "waitpid() failed", errno, 0);
         return 0;
     }
 }
@@ -484,7 +483,8 @@ int libxl_childproc_reaped(libxl_ctx *ctx, pid_t pid, int status)
     assert(CTX->childproc_hooks->chldowner
            == libxl_sigchld_owner_mainloop);
     int rc = childproc_reaped(egc, pid, status);
-    CTX_UNLOCK_EGC_FREE;
+    CTX_UNLOCK;
+    EGC_FREE;
     return rc;
 }
 
@@ -508,7 +508,7 @@ static void childproc_checkall(libxl__egc *egc)
     found:
         if (got == -1) {
             LIBXL__EVENT_DISASTER
-                (gc, "waitpid() gave ECHILD but we have a child",
+                (egc, "waitpid() gave ECHILD but we have a child",
                  ECHILD, 0);
             /* it must have finished but we don't know its status */
             status = 255<<8; /* no wait.h macro for this! */
@@ -529,7 +529,8 @@ void libxl_childproc_sigchld_occurred(libxl_ctx *ctx)
     assert(CTX->childproc_hooks->chldowner
            == libxl_sigchld_owner_mainloop);
     childproc_checkall(egc);
-    CTX_UNLOCK_EGC_FREE;
+    CTX_UNLOCK;
+    EGC_FREE;
 }
 
 static void sigchld_selfpipe_handler(libxl__egc *egc, libxl__ev_fd *ev,
@@ -546,14 +547,14 @@ static void sigchld_selfpipe_handler(libxl__egc *egc, libxl__ev_fd *ev,
 
     if (revents & ~POLLIN) {
         LOG(ERROR, "unexpected poll event 0x%x on SIGCHLD self pipe", revents);
-        LIBXL__EVENT_DISASTER(gc,
+        LIBXL__EVENT_DISASTER(egc,
                               "unexpected poll event on SIGCHLD self pipe",
                               0, 0);
     }
     assert(revents & POLLIN);
 
     int e = libxl__self_pipe_eatall(selfpipe);
-    if (e) LIBXL__EVENT_DISASTER(gc, "read sigchld pipe", e, 0);
+    if (e) LIBXL__EVENT_DISASTER(egc, "read sigchld pipe", e, 0);
 
     if (CTX->childproc_hooks->chldowner
         == libxl_sigchld_owner_libxl_always_selective_reap) {
@@ -582,7 +583,7 @@ static void sigchld_selfpipe_handler(libxl__egc *egc, libxl__ev_fd *ev,
                              " libxl_childproc_hooks->reaped_callback"
                              " (for pid=%lu, status=%d; error code %d)",
                              (unsigned long)pid, status, rc);
-                    LIBXL__EVENT_DISASTER(gc, disasterbuf, 0, 0);
+                    LIBXL__EVENT_DISASTER(egc, disasterbuf, 0, 0);
                     return;
                 }
             } else {
@@ -675,54 +676,6 @@ int libxl__ev_child_xenstore_reopen(libxl__gc *gc, const char *what) {
 
  out:
     return rc;
-}
-
-typedef struct ev_child_killed {
-    libxl__ao *ao;
-    libxl__ev_child ch;
-} ev_child_killed;
-static void deregistered_child_callback(libxl__egc *, libxl__ev_child *,
-                                        pid_t, int status);
-
-void libxl__ev_child_kill_deregister(libxl__ao *ao, libxl__ev_child *ch,
-                                     int sig)
-{
-    AO_GC;
-
-    if (!libxl__ev_child_inuse(ch))
-        return;
-
-    pid_t pid = ch->pid;
-
-    ev_child_killed *new_ch = GCNEW(new_ch);
-    new_ch->ao = ao;
-    new_ch->ch.pid = pid;
-    new_ch->ch.callback = deregistered_child_callback;
-    LIBXL_LIST_INSERT_HEAD(&CTX->children, &new_ch->ch, entry);
-    ao->outstanding_killed_child++;
-
-    LIBXL_LIST_REMOVE(ch, entry);
-    ch->pid = -1;
-    int r = kill(pid, sig);
-    if (r)
-        LOGED(ERROR, ao->domid,
-              "failed to kill child [%ld] with signal %d",
-             (unsigned long)pid, sig);
-}
-
-static void deregistered_child_callback(libxl__egc *egc,
-                                        libxl__ev_child *ch,
-                                        pid_t pid,
-                                        int status)
-{
-    ev_child_killed *ck = CONTAINER_OF(ch, *ck, ch);
-    EGC_GC;
-
-    libxl_report_child_exitstatus(CTX, XTL_ERROR,
-                                  "killed fork (dying as expected)",
-                                  pid, status);
-    ck->ao->outstanding_killed_child--;
-    libxl__ao_complete_check_progress_reports(egc, ck->ao);
 }
 
 /*

@@ -26,21 +26,43 @@
 #include <xen/memory.h>
 #include <xen/hvm/hvm_op.h>
 
-int xc_domain_create(xc_interface *xch, uint32_t *pdomid,
-                     struct xen_domctl_createdomain *config)
+int xc_domain_create(xc_interface *xch, uint32_t ssidref,
+                     xen_domain_handle_t handle, uint32_t flags,
+                     uint32_t *pdomid, xc_domain_configuration_t *config)
 {
+    xc_domain_configuration_t lconfig;
     int err;
     DECLARE_DOMCTL;
 
+    if ( config == NULL )
+    {
+        memset(&lconfig, 0, sizeof(lconfig));
+
+#if defined (__i386) || defined(__x86_64__)
+        if ( flags & XEN_DOMCTL_CDF_hvm_guest )
+            lconfig.emulation_flags = (XEN_X86_EMU_ALL & ~XEN_X86_EMU_VPCI);
+#elif defined (__arm__) || defined(__aarch64__)
+        lconfig.gic_version = XEN_DOMCTL_CONFIG_GIC_NATIVE;
+        lconfig.nr_spis = 0;
+#else
+#error Architecture not supported
+#endif
+
+        config = &lconfig;
+    }
+
     domctl.cmd = XEN_DOMCTL_createdomain;
     domctl.domain = *pdomid;
-    domctl.u.createdomain = *config;
-
+    domctl.u.createdomain.ssidref = ssidref;
+    domctl.u.createdomain.flags   = flags;
+    memcpy(domctl.u.createdomain.handle, handle, sizeof(xen_domain_handle_t));
+    /* xc_domain_configure_t is an alias of arch_domainconfig_t */
+    memcpy(&domctl.u.createdomain.arch, config, sizeof(*config));
     if ( (err = do_domctl(xch, &domctl)) != 0 )
         return err;
 
     *pdomid = (uint16_t)domctl.domain;
-    *config = domctl.u.createdomain;
+    memcpy(config, &domctl.u.createdomain.arch, sizeof(*config));
 
     return 0;
 }
@@ -1441,10 +1463,31 @@ int xc_domain_send_trigger(xc_interface *xch,
     return do_domctl(xch, &domctl);
 }
 
+static inline int xc_hvm_param_deprecated_check(uint32_t param)
+{
+    switch ( param )
+    {
+        case HVM_PARAM_MEMORY_EVENT_CR0:
+        case HVM_PARAM_MEMORY_EVENT_CR3:
+        case HVM_PARAM_MEMORY_EVENT_CR4:
+        case HVM_PARAM_MEMORY_EVENT_INT3:
+        case HVM_PARAM_MEMORY_EVENT_SINGLE_STEP:
+        case HVM_PARAM_MEMORY_EVENT_MSR:
+            return -EOPNOTSUPP;
+        default:
+            break;
+    };
+
+    return 0;
+}
+
 int xc_hvm_param_set(xc_interface *handle, uint32_t dom, uint32_t param, uint64_t value)
 {
     DECLARE_HYPERCALL_BUFFER(xen_hvm_param_t, arg);
-    int rc;
+    int rc = xc_hvm_param_deprecated_check(param);
+
+    if ( rc )
+        return rc;
 
     arg = xc_hypercall_buffer_alloc(handle, arg, sizeof(*arg));
     if ( arg == NULL )
@@ -1463,7 +1506,10 @@ int xc_hvm_param_set(xc_interface *handle, uint32_t dom, uint32_t param, uint64_
 int xc_hvm_param_get(xc_interface *handle, uint32_t dom, uint32_t param, uint64_t *value)
 {
     DECLARE_HYPERCALL_BUFFER(xen_hvm_param_t, arg);
-    int rc;
+    int rc = xc_hvm_param_deprecated_check(param);
+
+    if ( rc )
+        return rc;
 
     arg = xc_hypercall_buffer_alloc(handle, arg, sizeof(*arg));
     if ( arg == NULL )
@@ -2137,6 +2183,47 @@ int xc_domain_subscribe_for_suspend(
     return do_domctl(xch, &domctl);
 }
 
+int xc_domain_set_machine_address_size(xc_interface *xch,
+                                       uint32_t domid,
+                                       unsigned int width)
+{
+    DECLARE_DOMCTL;
+
+    memset(&domctl, 0, sizeof(domctl));
+    domctl.domain = domid;
+    domctl.cmd    = XEN_DOMCTL_set_machine_address_size;
+    domctl.u.address_size.size = width;
+
+    return do_domctl(xch, &domctl);
+}
+
+
+int xc_domain_get_machine_address_size(xc_interface *xch, uint32_t domid)
+{
+    DECLARE_DOMCTL;
+    int rc;
+
+    memset(&domctl, 0, sizeof(domctl));
+    domctl.domain = domid;
+    domctl.cmd    = XEN_DOMCTL_get_machine_address_size;
+
+    rc = do_domctl(xch, &domctl);
+
+    return rc == 0 ? domctl.u.address_size.size : rc;
+}
+
+int xc_domain_suppress_spurious_page_faults(xc_interface *xc, uint32_t domid)
+{
+    DECLARE_DOMCTL;
+
+    memset(&domctl, 0, sizeof(domctl));
+    domctl.domain = domid;
+    domctl.cmd    = XEN_DOMCTL_suppress_spurious_page_faults;
+
+    return do_domctl(xc, &domctl);
+
+}
+
 int xc_domain_debug_control(xc_interface *xc, uint32_t domid, uint32_t sop, uint32_t vcpu)
 {
     DECLARE_DOMCTL;
@@ -2189,6 +2276,30 @@ int xc_domain_set_virq_handler(xc_interface *xch, uint32_t domid, int virq)
     domctl.cmd = XEN_DOMCTL_set_virq_handler;
     domctl.domain = domid;
     domctl.u.set_virq_handler.virq = virq;
+    return do_domctl(xch, &domctl);
+}
+
+int xc_domain_set_max_evtchn(xc_interface *xch, uint32_t domid,
+                             uint32_t max_port)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_set_max_evtchn;
+    domctl.domain = domid;
+    domctl.u.set_max_evtchn.max_port = max_port;
+    return do_domctl(xch, &domctl);
+}
+
+int xc_domain_set_gnttab_limits(xc_interface *xch, uint32_t domid,
+                                uint32_t grant_frames,
+                                uint32_t maptrack_frames)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_set_gnttab_limits;
+    domctl.domain = domid;
+    domctl.u.set_gnttab_limits.grant_frames = grant_frames;
+    domctl.u.set_gnttab_limits.maptrack_frames = maptrack_frames;
     return do_domctl(xch, &domctl);
 }
 

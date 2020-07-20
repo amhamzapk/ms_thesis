@@ -5,6 +5,7 @@
 #ifndef __XEN_MULTICALL_H__
 #define __XEN_MULTICALL_H__
 
+#include <xen/percpu.h>
 #ifdef CONFIG_COMPAT
 #include <compat/xen.h>
 #endif

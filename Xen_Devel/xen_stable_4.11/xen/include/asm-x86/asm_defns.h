@@ -7,7 +7,9 @@
 #include <asm/asm-offsets.h>
 #endif
 #include <asm/bug.h>
-#include <asm/x86-defns.h>
+#include <asm/page.h>
+#include <asm/processor.h>
+#include <asm/percpu.h>
 #include <xen/stringify.h>
 #include <asm/cpufeature.h>
 #include <asm/alternative.h>
@@ -16,27 +18,15 @@
 #ifndef CONFIG_INDIRECT_THUNK
 .equ CONFIG_INDIRECT_THUNK, 0
 #endif
+# include <asm/indirect_thunk_asm.h>
 #else
 asm ( "\t.equ CONFIG_INDIRECT_THUNK, "
       __stringify(IS_ENABLED(CONFIG_INDIRECT_THUNK)) );
+asm ( "\t.include \"asm/indirect_thunk_asm.h\"" );
 #endif
-#include <asm/indirect_thunk_asm.h>
 
 #ifndef __ASSEMBLY__
 void ret_from_intr(void);
-
-/*
- * This output constraint should be used for any inline asm which has a "call"
- * instruction.  Otherwise the asm may be inserted before the frame pointer
- * gets set up by the containing function.
- */
-#ifdef CONFIG_FRAME_POINTER
-register unsigned long current_stack_pointer asm("rsp");
-# define ASM_CALL_CONSTRAINT , "+r" (current_stack_pointer)
-#else
-# define ASM_CALL_CONSTRAINT
-#endif
-
 #endif
 
 #ifndef NDEBUG
@@ -201,32 +191,36 @@ register unsigned long current_stack_pointer asm("rsp");
 #endif
 
 /* "Raw" instruction opcodes */
-#define __ASM_CLAC      ".byte 0x0f,0x01,0xca"
-#define __ASM_STAC      ".byte 0x0f,0x01,0xcb"
+#define __ASM_CLAC      .byte 0x0f,0x01,0xca
+#define __ASM_STAC      .byte 0x0f,0x01,0xcb
 
 #ifdef __ASSEMBLY__
-.macro ASM_STAC
-    ALTERNATIVE "", __ASM_STAC, X86_FEATURE_XEN_SMAP
-.endm
-.macro ASM_CLAC
-    ALTERNATIVE "", __ASM_CLAC, X86_FEATURE_XEN_SMAP
-.endm
+#define ASM_STAC                                        \
+    ALTERNATIVE __stringify(ASM_NOP3),                  \
+        __stringify(__ASM_STAC), X86_FEATURE_XEN_SMAP
+
+#define ASM_CLAC                                        \
+    ALTERNATIVE __stringify(ASM_NOP3),                  \
+        __stringify(__ASM_CLAC), X86_FEATURE_XEN_SMAP
+
+#define CR4_PV32_RESTORE                                \
+    ALTERNATIVE_2 __stringify(ASM_NOP5),                \
+        "call cr4_pv32_restore", X86_FEATURE_XEN_SMEP,  \
+        "call cr4_pv32_restore", X86_FEATURE_XEN_SMAP
+
 #else
 static always_inline void clac(void)
 {
     /* Note: a barrier is implicit in alternative() */
-    alternative("", __ASM_CLAC, X86_FEATURE_XEN_SMAP);
+    alternative(ASM_NOP3, __stringify(__ASM_CLAC), X86_FEATURE_XEN_SMAP);
 }
 
 static always_inline void stac(void)
 {
     /* Note: a barrier is implicit in alternative() */
-    alternative("", __ASM_STAC, X86_FEATURE_XEN_SMAP);
+    alternative(ASM_NOP3, __stringify(__ASM_STAC), X86_FEATURE_XEN_SMAP);
 }
 #endif
-
-#undef __ASM_STAC
-#undef __ASM_CLAC
 
 #ifdef __ASSEMBLY__
 .macro SAVE_ALL op, compat=0
@@ -333,17 +327,22 @@ static always_inline void stac(void)
         subq  $-(UREGS_error_code-UREGS_r15+\adj), %rsp
 .endm
 
-#ifdef CONFIG_PV
-#define CR4_PV32_RESTORE                               \
-    ALTERNATIVE_2 "",                                  \
-        "call cr4_pv32_restore", X86_FEATURE_XEN_SMEP, \
-        "call cr4_pv32_restore", X86_FEATURE_XEN_SMAP
-#else
-#define CR4_PV32_RESTORE
 #endif
 
-#include <asm/spec_ctrl_asm.h>
-
+#ifdef CONFIG_PERF_COUNTERS
+#define PERFC_INCR(_name,_idx,_cur)             \
+        pushq _cur;                             \
+        movslq VCPU_processor(_cur),_cur;       \
+        pushq %rdx;                             \
+        leaq __per_cpu_offset(%rip),%rdx;       \
+        movq (%rdx,_cur,8),_cur;                \
+        leaq per_cpu__perfcounters(%rip),%rdx;  \
+        addq %rdx,_cur;                         \
+        popq %rdx;                              \
+        incl ASM_PERFC_##_name*4(_cur,_idx,4);  \
+        popq _cur
+#else
+#define PERFC_INCR(_name,_idx,_cur)
 #endif
 
 /* Work around AMD erratum #88 */
@@ -370,13 +369,6 @@ static always_inline void stac(void)
 4:  .p2align 2                            ; \
     .popsection
 
-#define ASM_INT(label, val)                 \
-    .p2align 2;                             \
-label: .long (val);                         \
-    .size label, . - label;                 \
-    .type label, @object
+#include <asm/spec_ctrl_asm.h>
 
-#define ASM_CONSTANT(name, value)                \
-    asm ( ".equ " #name ", %P0; .global " #name  \
-          :: "i" ((value)) );
 #endif /* __X86_ASM_DEFNS_H__ */

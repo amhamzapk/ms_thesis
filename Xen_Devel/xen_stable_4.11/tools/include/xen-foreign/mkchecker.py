@@ -37,7 +37,7 @@ for struct in structs:
     f.write('\tprintf("%%-25s |", "%s");\n' % struct);
     for a in archs:
         s = struct + "_" + a;
-        if a in compat_arches:
+        if compat_arches.has_key(a):
             compat = compat_arches[a]
             c = struct + "_" + compat;
         else:

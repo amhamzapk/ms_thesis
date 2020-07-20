@@ -31,7 +31,6 @@
 #include <xen/delay.h>
 #include <xen/cpumask.h>
 #include <xen/list.h>
-#include <xen/param.h>
 #include <xen/sched.h>
 #include <xen/string.h>
 #include <xen/timer.h>
@@ -42,7 +41,7 @@
 #include <asm/bug.h>
 #include <asm/io.h>
 #include <asm/processor.h>
-
+#include <asm/percpu.h>
 #include <acpi/acpi.h>
 #include <acpi/cpufreq/cpufreq.h>
 
@@ -173,7 +172,7 @@ int cpufreq_add_cpu(unsigned int cpu)
     if ( !(perf->init & XEN_PX_INIT) )
         return -EINVAL;
 
-    if (!cpufreq_driver.init)
+    if (!cpufreq_driver)
         return 0;
 
     if (per_cpu(cpufreq_cpu_policy, cpu))
@@ -240,7 +239,7 @@ int cpufreq_add_cpu(unsigned int cpu)
         policy->cpu = cpu;
         per_cpu(cpufreq_cpu_policy, cpu) = policy;
 
-        ret = cpufreq_driver.init(policy);
+        ret = cpufreq_driver->init(policy);
         if (ret) {
             free_cpumask_var(policy->cpus);
             xfree(policy);
@@ -299,7 +298,7 @@ err1:
     cpumask_clear_cpu(cpu, cpufreq_dom->map);
 
     if (cpumask_empty(policy->cpus)) {
-        cpufreq_driver.exit(policy);
+        cpufreq_driver->exit(policy);
         free_cpumask_var(policy->cpus);
         xfree(policy);
     }
@@ -363,7 +362,7 @@ int cpufreq_del_cpu(unsigned int cpu)
     cpumask_clear_cpu(cpu, cpufreq_dom->map);
 
     if (cpumask_empty(policy->cpus)) {
-        cpufreq_driver.exit(policy);
+        cpufreq_driver->exit(policy);
         free_cpumask_var(policy->cpus);
         xfree(policy);
     }
@@ -664,17 +663,17 @@ static int __init cpufreq_presmp_init(void)
 }
 presmp_initcall(cpufreq_presmp_init);
 
-int __init cpufreq_register_driver(const struct cpufreq_driver *driver_data)
+int __init cpufreq_register_driver(struct cpufreq_driver *driver_data)
 {
    if ( !driver_data || !driver_data->init ||
         !driver_data->verify || !driver_data->exit ||
         (!driver_data->target == !driver_data->setpolicy) )
         return -EINVAL;
 
-    if ( cpufreq_driver.init )
+    if ( cpufreq_driver )
         return -EBUSY;
 
-    cpufreq_driver = *driver_data;
+    cpufreq_driver = driver_data;
 
     return 0;
 }

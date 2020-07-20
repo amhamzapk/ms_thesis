@@ -6,8 +6,6 @@
 #include <xen/pfn.h>
 #include <xen/sched.h>
 
-#include <asm/guest_atomics.h>
-
 #define INITIAL_NR_GRANT_FRAMES 1U
 #define GNTTAB_MAX_VERSION 1
 
@@ -16,25 +14,19 @@ struct grant_table_arch {
     gfn_t *status_gfn;
 };
 
-static inline void gnttab_clear_flags(struct domain *d,
-                                      unsigned int mask, uint16_t *addr)
-{
-    guest_clear_mask16(d, mask, addr);
-}
-
-static inline void gnttab_mark_dirty(struct domain *d, mfn_t mfn)
-{
-#ifndef NDEBUG
-    printk_once(XENLOG_G_WARNING "gnttab_mark_dirty not implemented yet\n");
-#endif
-}
-
+void gnttab_clear_flag(struct domain *d, unsigned long nr, uint16_t *addr);
 int create_grant_host_mapping(unsigned long gpaddr, mfn_t mfn,
                               unsigned int flags, unsigned int cache_flags);
 #define gnttab_host_mapping_get_page_type(ro, ld, rd) (0)
 int replace_grant_host_mapping(unsigned long gpaddr, mfn_t mfn,
                                unsigned long new_gpaddr, unsigned int flags);
+void gnttab_mark_dirty(struct domain *d, mfn_t mfn);
+#define gnttab_create_status_page(d, t, i) do {} while (0)
 #define gnttab_release_host_mappings(domain) 1
+static inline int replace_grant_supported(void)
+{
+    return 1;
+}
 
 /*
  * The region used by Xen on the memory will never be mapped in DOM0
@@ -43,8 +35,10 @@ int replace_grant_host_mapping(unsigned long gpaddr, mfn_t mfn,
  * Only use the text section as it's always present and will contain
  * enough space for a large grant table
  */
-#define gnttab_dom0_frames()                                             \
-    min_t(unsigned int, opt_max_grant_frames, PFN_DOWN(_etext - _stext))
+static inline unsigned int gnttab_dom0_max(void)
+{
+    return PFN_DOWN(_etext - _stext);
+}
 
 #define gnttab_init_arch(gt)                                             \
 ({                                                                       \
@@ -67,8 +61,10 @@ int replace_grant_host_mapping(unsigned long gpaddr, mfn_t mfn,
 
 #define gnttab_destroy_arch(gt)                                          \
     do {                                                                 \
-        XFREE((gt)->arch.shared_gfn);                                    \
-        XFREE((gt)->arch.status_gfn);                                    \
+        xfree((gt)->arch.shared_gfn);                                    \
+        (gt)->arch.shared_gfn = NULL;                                    \
+        xfree((gt)->arch.status_gfn);                                    \
+        (gt)->arch.status_gfn = NULL;                                    \
     } while ( 0 )
 
 #define gnttab_set_frame_gfn(gt, st, idx, gfn)                           \
@@ -78,18 +74,24 @@ int replace_grant_host_mapping(unsigned long gpaddr, mfn_t mfn,
     } while ( 0 )
 
 #define gnttab_get_frame_gfn(gt, st, idx) ({                             \
-   (st) ? gnttab_status_gfn(NULL, gt, idx)                               \
-        : gnttab_shared_gfn(NULL, gt, idx);                              \
+   _gfn((st) ? gnttab_status_gmfn(NULL, gt, idx)                         \
+             : gnttab_shared_gmfn(NULL, gt, idx));                       \
 })
 
-#define gnttab_shared_gfn(d, t, i)                                       \
-    (((i) >= nr_grant_frames(t)) ? INVALID_GFN : (t)->arch.shared_gfn[i])
+#define gnttab_create_shared_page(d, t, i)                               \
+    do {                                                                 \
+        share_xen_page_with_guest(                                       \
+            virt_to_page((char *)(t)->shared_raw[i]), d, SHARE_rw);      \
+    } while ( 0 )
 
-#define gnttab_status_gfn(d, t, i)                                       \
-    (((i) >= nr_status_frames(t)) ? INVALID_GFN : (t)->arch.status_gfn[i])
+#define gnttab_shared_gmfn(d, t, i)                                      \
+    gfn_x(((i) >= nr_grant_frames(t)) ? INVALID_GFN : (t)->arch.shared_gfn[i])
+
+#define gnttab_status_gmfn(d, t, i)                                      \
+    gfn_x(((i) >= nr_status_frames(t)) ? INVALID_GFN : (t)->arch.status_gfn[i])
 
 #define gnttab_need_iommu_mapping(d)                    \
-    (is_domain_direct_mapped(d) && need_iommu_pt_sync(d))
+    (is_domain_direct_mapped(d) && need_iommu(d))
 
 #endif /* __ASM_GRANT_TABLE_H__ */
 /*

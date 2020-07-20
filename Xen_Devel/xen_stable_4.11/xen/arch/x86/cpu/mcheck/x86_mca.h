@@ -125,7 +125,7 @@ static inline int mcabanks_test(int bit, struct mca_banks* banks)
     return test_bit(bit, banks->bank_map);
 }
 
-struct mca_banks *mcabanks_alloc(unsigned int nr);
+struct mca_banks *mcabanks_alloc(void);
 void mcabanks_free(struct mca_banks *banks);
 extern struct mca_banks *mca_allbanks;
 

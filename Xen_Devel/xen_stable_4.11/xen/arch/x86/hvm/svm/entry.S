@@ -19,8 +19,13 @@
 
         .file "svm/entry.S"
 
+#include <xen/errno.h>
+#include <xen/softirq.h>
+#include <asm/types.h>
 #include <asm/asm_defns.h>
+#include <asm/apicdef.h>
 #include <asm/page.h>
+#include <public/xen.h>
 
 #define VMRUN  .byte 0x0F,0x01,0xD8
 #define STGI   .byte 0x0F,0x01,0xDC
@@ -38,7 +43,7 @@ ENTRY(svm_asm_do_resume)
         lea  irq_stat+IRQSTAT_softirq_pending(%rip),%rdx
         xor  %ecx,%ecx
         shl  $IRQSTAT_shift,%eax
-        cli
+        CLGI
         cmp  %ecx,(%rdx,%rax,1)
         jne  .Lsvm_process_softirqs
 
@@ -52,14 +57,14 @@ UNLIKELY_START(ne, nsvm_hap)
          * Someone shot down our nested p2m table; go round again
          * and nsvm_vcpu_switch() will fix it for us.
          */
-        sti
+        STGI
         jmp  .Lsvm_do_resume
 __UNLIKELY_END(nsvm_hap)
 
         mov  %rsp, %rdi
         call svm_vmenter_helper
 
-        mov VCPU_arch_msrs(%rbx), %rax
+        mov VCPU_arch_msr(%rbx), %rax
         mov VCPUMSR_spec_ctrl_raw(%rax), %eax
 
         /* WARNING! `ret`, `call *`, `jmp *` not safe beyond this point. */
@@ -76,14 +81,12 @@ __UNLIKELY_END(nsvm_hap)
         pop  %r10
         pop  %r9
         pop  %r8
-        pop  %rcx /* Skip %rax: restored by VMRUN. */
+        add  $8,%rsp /* Skip %rax: restored by VMRUN. */
         pop  %rcx
         pop  %rdx
         pop  %rsi
         pop  %rdi
 
-        CLGI
-        sti
         VMRUN
 
         SAVE_ALL
@@ -100,6 +103,6 @@ GLOBAL(svm_stgi_label)
         jmp  .Lsvm_do_resume
 
 .Lsvm_process_softirqs:
-        sti
+        STGI
         call do_softirq
         jmp  .Lsvm_do_resume

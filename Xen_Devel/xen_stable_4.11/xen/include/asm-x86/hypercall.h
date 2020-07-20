@@ -28,10 +28,9 @@ extern const hypercall_args_t hypercall_args_table[NR_hypercalls];
 #ifdef CONFIG_PV
 extern const hypercall_table_t pv_hypercall_table[];
 void pv_hypercall(struct cpu_user_regs *regs);
+void hypercall_page_initialise_ring3_kernel(void *hypercall_page);
+void hypercall_page_initialise_ring1_kernel(void *hypercall_page);
 #endif
-
-void pv_ring1_init_hypercall_page(void *ptr);
-void pv_ring3_init_hypercall_page(void *ptr);
 
 /*
  * Both do_mmuext_op() and do_mmu_update():
@@ -88,7 +87,8 @@ do_get_debugreg(
 
 extern long
 do_update_descriptor(
-    uint64_t gaddr, seg_desc_t desc);
+    u64 pa,
+    u64 desc);
 
 extern long
 do_mca(XEN_GUEST_HANDLE_PARAM(xen_mc_t) u_xen_mc);

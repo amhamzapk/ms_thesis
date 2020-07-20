@@ -19,7 +19,7 @@
 
 static inline
 bool p2m_mem_access_emulate_check(struct vcpu *v,
-                                  const struct vm_event_st *rsp)
+                                  const vm_event_response_t *rsp)
 {
     /* Not supported on ARM. */
     return false;

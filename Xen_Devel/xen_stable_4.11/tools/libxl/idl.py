@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import sys
 
 PASS_BY_VALUE = 1
@@ -13,7 +11,7 @@ DIR_BOTH = 3
 _default_namespace = ""
 def namespace(s):
     if type(s) != str:
-        raise TypeError("Require a string for the default namespace.")
+        raise TypeError, "Require a string for the default namespace."
     global _default_namespace
     _default_namespace = s
 
@@ -348,7 +346,7 @@ class OrderedDict(dict):
         return [(x,self[x]) for x in self.__ordered]
 
 def parse(f):
-    print("Parsing %s" % f, file=sys.stderr)
+    print >>sys.stderr, "Parsing %s" % f
 
     globs = {}
     locs = OrderedDict()
@@ -364,10 +362,11 @@ def parse(f):
             globs[n] = t
 
     try:
-        exec(compile(open(f).read(), f, 'exec'), globs, locs)
-    except SyntaxError as e:
-        raise SyntaxError("Errors were found at line %d while processing %s:\n\t%s"
-                          % (e.lineno, f, e.text))
+        execfile(f, globs, locs)
+    except SyntaxError,e:
+        raise SyntaxError, \
+              "Errors were found at line %d while processing %s:\n\t%s"\
+              %(e.lineno,f,e.text)
 
     types = [t for t in locs.ordered_values() if isinstance(t,Type)]
 

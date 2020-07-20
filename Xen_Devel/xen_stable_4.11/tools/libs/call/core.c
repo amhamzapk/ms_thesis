@@ -91,11 +91,6 @@ int xencall_close(xencall_handle *xcall)
     return rc;
 }
 
-int xencall_fd(xencall_handle *xcall)
-{
-    return xcall->fd;
-}
-
 int xencall0(xencall_handle *xcall, unsigned int op)
 {
     privcmd_hypercall_t call = {

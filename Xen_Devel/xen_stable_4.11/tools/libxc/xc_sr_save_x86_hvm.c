@@ -11,7 +11,8 @@ static int write_hvm_context(struct xc_sr_context *ctx)
 {
     xc_interface *xch = ctx->xch;
     int rc, hvm_buf_size;
-    struct xc_sr_record hvm_rec = {
+    struct xc_sr_record hvm_rec =
+    {
         .type = REC_TYPE_HVM_CONTEXT,
     };
 
@@ -71,6 +72,7 @@ static int write_hvm_params(struct xc_sr_context *ctx)
         HVM_PARAM_ACPI_IOPORTS_LOCATION,
         HVM_PARAM_VIRIDIAN,
         HVM_PARAM_IDENT_PT,
+        HVM_PARAM_PAE_ENABLED,
         HVM_PARAM_VM_GENERATION_ID_ADDR,
         HVM_PARAM_IOREQ_SERVER_PFN,
         HVM_PARAM_NR_IOREQ_SERVER_PAGES,
@@ -132,6 +134,7 @@ static xen_pfn_t x86_hvm_pfn_to_gfn(const struct xc_sr_context *ctx,
 static int x86_hvm_normalise_page(struct xc_sr_context *ctx,
                                   xen_pfn_t type, void **page)
 {
+    /* no-op */
     return 0;
 }
 
@@ -164,28 +167,26 @@ static int x86_hvm_setup(struct xc_sr_context *ctx)
         return -1;
     }
 
-    ctx->x86.hvm.save.qemu_enabled_logdirty = true;
+    ctx->x86_hvm.save.qemu_enabled_logdirty = true;
 
     return 0;
 }
 
-static int x86_hvm_static_data(struct xc_sr_context *ctx)
-{
-    return write_x86_cpu_policy_records(ctx);
-}
-
 static int x86_hvm_start_of_stream(struct xc_sr_context *ctx)
 {
+    /* no-op */
     return 0;
 }
 
 static int x86_hvm_start_of_checkpoint(struct xc_sr_context *ctx)
 {
+    /* no-op */
     return 0;
 }
 
 static int x86_hvm_check_vm_state(struct xc_sr_context *ctx)
 {
+    /* no-op */
     return 0;
 }
 
@@ -194,7 +195,7 @@ static int x86_hvm_end_of_checkpoint(struct xc_sr_context *ctx)
     int rc;
 
     /* Write the TSC record. */
-    rc = write_x86_tsc_info(ctx);
+    rc = write_tsc_info(ctx);
     if ( rc )
         return rc;
 
@@ -216,7 +217,7 @@ static int x86_hvm_cleanup(struct xc_sr_context *ctx)
     xc_interface *xch = ctx->xch;
 
     /* If qemu successfully enabled logdirty mode, attempt to disable. */
-    if ( ctx->x86.hvm.save.qemu_enabled_logdirty &&
+    if ( ctx->x86_hvm.save.qemu_enabled_logdirty &&
          ctx->save.callbacks->switch_qemu_logdirty(
              ctx->domid, 0, ctx->save.callbacks->data) )
     {
@@ -232,7 +233,6 @@ struct xc_sr_save_ops save_ops_x86_hvm =
     .pfn_to_gfn          = x86_hvm_pfn_to_gfn,
     .normalise_page      = x86_hvm_normalise_page,
     .setup               = x86_hvm_setup,
-    .static_data         = x86_hvm_static_data,
     .start_of_stream     = x86_hvm_start_of_stream,
     .start_of_checkpoint = x86_hvm_start_of_checkpoint,
     .end_of_checkpoint   = x86_hvm_end_of_checkpoint,

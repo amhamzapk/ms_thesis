@@ -194,12 +194,9 @@ int xlu_rdm_parse(XLU_Config *cfg, libxl_rdm_reserve *rdm, const char *str)
         switch(state) {
         case STATE_TYPE:
             if (*ptr == '=') {
+                state = STATE_RDM_STRATEGY;
                 *ptr = '\0';
-                if (!strcmp(tok, "strategy")) {
-                    state = STATE_RDM_STRATEGY;
-                } else if (!strcmp(tok, "policy")) {
-                    state = STATE_RESERVE_POLICY;
-                } else {
+                if (strcmp(tok, "strategy")) {
                     XLU__PCI_ERR(cfg, "Unknown RDM state option: %s", tok);
                     goto parse_error;
                 }
@@ -208,7 +205,7 @@ int xlu_rdm_parse(XLU_Config *cfg, libxl_rdm_reserve *rdm, const char *str)
             break;
         case STATE_RDM_STRATEGY:
             if (*ptr == '\0' || *ptr == ',') {
-                state = *ptr == ',' ? STATE_TYPE : STATE_TERMINAL;
+                state = STATE_RESERVE_POLICY;
                 *ptr = '\0';
                 if (!strcmp(tok, "host")) {
                     rdm->strategy = LIBXL_RDM_RESERVE_STRATEGY_HOST;
@@ -220,8 +217,19 @@ int xlu_rdm_parse(XLU_Config *cfg, libxl_rdm_reserve *rdm, const char *str)
             }
             break;
         case STATE_RESERVE_POLICY:
+            if (*ptr == '=') {
+                state = STATE_OPTIONS_V;
+                *ptr = '\0';
+                if (strcmp(tok, "policy")) {
+                    XLU__PCI_ERR(cfg, "Unknown RDM property value: %s", tok);
+                    goto parse_error;
+                }
+                tok = ptr + 1;
+            }
+            break;
+        case STATE_OPTIONS_V:
             if (*ptr == ',' || *ptr == '\0') {
-                state = *ptr == ',' ? STATE_TYPE : STATE_TERMINAL;
+                state = STATE_TERMINAL;
                 *ptr = '\0';
                 if (!strcmp(tok, "strict")) {
                     rdm->policy = LIBXL_RDM_RESERVE_POLICY_STRICT;

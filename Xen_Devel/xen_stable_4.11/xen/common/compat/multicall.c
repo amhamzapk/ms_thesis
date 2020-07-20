@@ -2,7 +2,7 @@
  * multicall.c
  */
 
-EMIT_FILE;
+asm(".file \"" __FILE__ "\"");
 
 #include <xen/types.h>
 #include <xen/multicall.h>

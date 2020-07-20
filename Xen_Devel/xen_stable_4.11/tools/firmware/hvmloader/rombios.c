@@ -63,8 +63,6 @@ static void rombios_setup_bios_info(void)
     memset(info, 0, sizeof(*info));
 }
 
-static void *ipxe_module_addr;
-
 static void rombios_load_roms(void)
 {
     int option_rom_sz = 0, vgabios_sz = 0, etherboot_sz = 0;
@@ -97,17 +95,13 @@ static void rombios_load_roms(void)
     etherboot_phys_addr = VGABIOS_PHYSICAL_ADDRESS + vgabios_sz;
     if ( etherboot_phys_addr < OPTIONROM_PHYSICAL_ADDRESS )
         etherboot_phys_addr = OPTIONROM_PHYSICAL_ADDRESS;
+    etherboot_sz = scan_etherboot_nic(OPTIONROM_PHYSICAL_END,
+                                      etherboot_phys_addr,
+                                      etherboot);
 
-    if ( ipxe_module_addr )
-    {
-        etherboot_sz = scan_etherboot_nic(OPTIONROM_PHYSICAL_END,
-                                          etherboot_phys_addr,
-                                          ipxe_module_addr);
-
-        option_rom_phys_addr = etherboot_phys_addr + etherboot_sz;
-        option_rom_sz = pci_load_option_roms(OPTIONROM_PHYSICAL_END,
-                                             option_rom_phys_addr);
-    }
+    option_rom_phys_addr = etherboot_phys_addr + etherboot_sz;
+    option_rom_sz = pci_load_option_roms(OPTIONROM_PHYSICAL_END,
+                                         option_rom_phys_addr);
 
     printf("Option ROMs:\n");
     if ( vgabios_sz )
@@ -125,8 +119,7 @@ static void rombios_load_roms(void)
 }
 
 static void rombios_load(const struct bios_config *config,
-                         void *unused_addr, uint32_t unused_size,
-                         void *ipxe_addr)
+                         void *unused_addr, uint32_t unused_size)
 {
     uint32_t bioshigh;
     struct rombios_info *info;
@@ -140,9 +133,6 @@ static void rombios_load(const struct bios_config *config,
 
     info = (struct rombios_info *)BIOS_INFO_PHYSICAL_ADDRESS;
     info->bios32_entry = bioshigh;
-
-    /* Stash ipxe address */
-    ipxe_module_addr = ipxe_addr;
 }
 
 /*

@@ -775,8 +775,6 @@ int security_sid_to_context(u32 sid, char **scontext, u32 *scontext_len)
 
             *scontext_len = strlen(initial_sid_to_string[sid]) + 1;
             scontextp = xmalloc_array(char, *scontext_len);
-            if ( !scontextp )
-                return -ENOMEM;
             strlcpy(scontextp, initial_sid_to_string[sid], *scontext_len);
             *scontext = scontextp;
             goto out;

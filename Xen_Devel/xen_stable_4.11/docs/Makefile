@@ -6,37 +6,54 @@ VERSION		:= $(shell $(MAKE) -C $(XEN_ROOT)/xen --no-print-directory xenversion)
 DATE		:= $(shell date +%Y-%m-%d)
 
 DOC_ARCHES      := arm x86_32 x86_64
-MAN_SECTIONS    := 1 5 7 8
 
 # Documentation sources to build
-MAN-SRC-y := $(sort $(basename $(wildcard man/*.pod man/*.pandoc)))
+MAN1SRC-y := $(sort $(shell find man/ -regex '.*\.\(pod\|markdown\)\.1' -print))
+MAN5SRC-y := $(sort $(shell find man/ -regex '.*\.\(pod\|markdown\)\.5' -print))
+MAN7SRC-y := $(sort $(shell find man/ -regex '.*\.\(pod\|markdown\)\.7' -print))
+MAN8SRC-y := $(sort $(shell find man/ -regex '.*\.\(pod\|markdown\)\.8' -print))
 
-RST-SRC-y := $(sort $(filter-out %index.rst,$(shell find * -type f -name '*.rst' -print)))
+MARKDOWNSRC-y := $(sort $(shell find misc -name '*.markdown' -print))
 
 TXTSRC-y := $(sort $(shell find misc -name '*.txt' -print))
 
-PANDOCSRC-y := $(sort $(shell find designs/ features/ misc/ process/ specs/ \( -name '*.pandoc' -o -name '*.md' \) -print))
+PANDOCSRC-y := $(sort $(shell find process/ features/ misc/ specs/ -name '*.pandoc' -print))
 
 # Documentation targets
-$(foreach i,$(MAN_SECTIONS), \
-  $(eval DOC_MAN$(i) := $(patsubst man/%.$(i),man$(i)/%.$(i), \
-                                   $(filter %.$(i),$(MAN-SRC-y)))))
-
+DOC_MAN1 := $(patsubst man/%.pod.1,man1/%.1,$(MAN1SRC-y)) \
+	        $(patsubst man/%.markdown.1,man1/%.1,$(MAN1SRC-y))
+DOC_MAN5 := $(patsubst man/%.pod.5,man5/%.5,$(MAN5SRC-y)) \
+	        $(patsubst man/%.markdown.5,man5/%.5,$(MAN5SRC-y))
+DOC_MAN7 := $(patsubst man/%.pod.7,man7/%.7,$(MAN7SRC-y)) \
+	        $(patsubst man/%.markdown.7,man7/%.7,$(MAN7SRC-y))
+DOC_MAN8 := $(patsubst man/%.pod.8,man8/%.8,$(MAN8SRC-y)) \
+	        $(patsubst man/%.markdown.8,man8/%.8,$(MAN8SRC-y))
 DOC_HTML := html/SUPPORT.html \
+            $(patsubst %.markdown,html/%.html,$(MARKDOWNSRC-y)) \
             $(patsubst %.pandoc,html/%.html,$(PANDOCSRC-y)) \
-            $(patsubst %.md,html/%.html,$(PANDOCSRC-y)) \
-            $(patsubst %.rst,html/%.html,$(RST-SRC-y)) \
-            $(patsubst %,html/%.html,$(MAN-SRC-y)) \
+            $(patsubst man/%.markdown.1,html/man/%.1.html,$(MAN1SRC-y)) \
+            $(patsubst man/%.markdown.5,html/man/%.5.html,$(MAN5SRC-y)) \
+            $(patsubst man/%.markdown.7,html/man/%.7.html,$(MAN7SRC-y)) \
+            $(patsubst man/%.markdown.8,html/man/%.8.html,$(MAN8SRC-y)) \
+            $(patsubst man/%.pod.1,html/man/%.1.html,$(MAN1SRC-y)) \
+            $(patsubst man/%.pod.5,html/man/%.5.html,$(MAN5SRC-y)) \
+            $(patsubst man/%.pod.7,html/man/%.7.html,$(MAN7SRC-y)) \
+            $(patsubst man/%.pod.8,html/man/%.8.html,$(MAN8SRC-y)) \
             $(patsubst %.txt,html/%.txt,$(TXTSRC-y)) \
             $(patsubst %,html/hypercall/%/index.html,$(DOC_ARCHES))
 DOC_TXT  := $(patsubst %.txt,txt/%.txt,$(TXTSRC-y)) \
+            $(patsubst %.markdown,txt/%.txt,$(MARKDOWNSRC-y)) \
             $(patsubst %.pandoc,txt/%.txt,$(PANDOCSRC-y)) \
-            $(patsubst %.md,txt/%.txt,$(PANDOCSRC-y)) \
-            $(patsubst %.rst,txt/%.txt,$(RST-SRC-y)) \
-            $(patsubst %,txt/%.txt,$(MAN-SRC-y))
-DOC_PDF  := $(patsubst %.pandoc,pdf/%.pdf,$(PANDOCSRC-y)) \
-            $(patsubst %.md,pdf/%.pdf,$(PANDOCSRC-y)) \
-            $(patsubst %.rst,pdf/%.pdf,$(RST-SRC-y))
+            $(patsubst man/%.markdown.1,txt/man/%.1.txt,$(MAN1SRC-y)) \
+            $(patsubst man/%.markdown.5,txt/man/%.5.txt,$(MAN5SRC-y)) \
+            $(patsubst man/%.markdown.7,txt/man/%.7.txt,$(MAN7SRC-y)) \
+            $(patsubst man/%.markdown.8,txt/man/%.8.txt,$(MAN8SRC-y)) \
+            $(patsubst man/%.pod.1,txt/man/%.1.txt,$(MAN1SRC-y)) \
+            $(patsubst man/%.pod.5,txt/man/%.5.txt,$(MAN5SRC-y)) \
+            $(patsubst man/%.pod.7,txt/man/%.7.txt,$(MAN7SRC-y)) \
+            $(patsubst man/%.pod.8,txt/man/%.8.txt,$(MAN8SRC-y))
+DOC_PDF  := $(patsubst %.markdown,pdf/%.pdf,$(MARKDOWNSRC-y)) \
+            $(patsubst %.pandoc,pdf/%.pdf,$(PANDOCSRC-y))
 
 # Top level build targets
 .PHONY: all
@@ -44,10 +61,6 @@ all: build
 
 .PHONY: build
 build: html txt pdf man-pages figs
-
-.PHONY: sphinx-html
-sphinx-html:
-	sphinx-build -b html . sphinx/html
 
 .PHONY: html
 html: $(DOC_HTML) html/index.html
@@ -58,7 +71,7 @@ txt: $(DOC_TXT)
 .PHONY: figs
 figs:
 ifneq ($(FIG2DEV),)
-	$(MAKE) -C figs
+	set -x; $(MAKE) -C figs
 else
 	@echo "fig2dev (transfig) not installed; skipping figs."
 endif
@@ -71,7 +84,7 @@ clean: clean-man-pages
 	$(MAKE) -C figs clean
 	rm -rf .word_count *.aux *.dvi *.bbl *.blg *.glo *.idx *~
 	rm -rf *.ilg *.log *.ind *.toc *.bak *.tmp core
-	rm -rf html txt pdf sphinx/html
+	rm -rf html txt pdf
 
 .PHONY: distclean
 distclean: clean
@@ -86,7 +99,7 @@ distclean: clean
 define GENERATE_MANPAGE_RULES
 
 # Real manpages
-man$(1)/%.$(1): man/%.$(1).pod Makefile
+man$(1)/%.$(1): man/%.pod.$(1) Makefile
 ifneq ($(POD2MAN),)
 	@$(INSTALL_DIR) $$(@D)
 	$(POD2MAN) --release=$(VERSION) --name=$$* -s $(1) -c "Xen" $$< $$@
@@ -94,7 +107,7 @@ else
 	@echo "pod2man not installed; skipping $$@"
 endif
 
-man$(1)/%.$(1): man/%.$(1).pandoc Makefile
+man$(1)/%.$(1): man/%.markdown.$(1) Makefile
 ifneq ($(PANDOC),)
 	@$(INSTALL_DIR) $$(@D)
 	$(PANDOC) --standalone -V title=$$* -V section=$(1) \
@@ -105,20 +118,15 @@ else
 endif
 
 # HTML manpages
-# sed used to fix up links between man-pages
-# 1) L<xl(1)> -> L<xl(1)|relative:xl.1.html>
-# 2) <a href="relative:xl.1.html"> -> <a href="xl.1.html">
-html/man/%.$(1).html: man/%.$(1).pod Makefile
+html/man/%.$(1).html: man/%.pod.$(1) Makefile
 ifneq ($(POD2HTML),)
 	@$(INSTALL_DIR) $$(@D)
-	sed -r -e 's%L<([^>]+)\(([1-9])\)>%L<\1(\2)|relative:\1.\2.html>%g' $$< | \
-		$(POD2HTML) | \
-		sed -r -e 's%( href=")relative:%\1%g' > $$@
+	$(POD2HTML) --infile=$$< --outfile=$$@
 else
 	@echo "pod2html not installed; skipping $$@"
 endif
 
-html/man/%.$(1).html: man/%.$(1).pandoc Makefile
+html/man/%.$(1).html: man/%.markdown.$(1) Makefile
 ifneq ($(PANDOC),)
 	@$(INSTALL_DIR) $$(@D)
 	$(PANDOC) --standalone $$< -t html --toc --output $$@
@@ -127,7 +135,7 @@ else
 endif
 
 # Text manpages
-txt/man/%.$(1).txt: man/%.$(1).pod Makefile
+txt/man/%.$(1).txt: man/%.pod.$(1) Makefile
 ifneq ($(POD2TEXT),)
 	@$(INSTALL_DIR) $$(@D)
 	$(POD2TEXT) $$< $$@
@@ -135,7 +143,7 @@ else
 	@echo "pod2text not installed; skipping $$@"
 endif
 
-txt/man/%.$(1).txt: man/%.$(1).pandoc Makefile
+txt/man/%.$(1).txt: man/%.markdown.$(1) Makefile
 ifneq ($(PANDOC),)
 	@$(INSTALL_DIR) $$(@D)
 	$(PANDOC) --standalone $$< -t plain --output $$@
@@ -161,7 +169,7 @@ clean-man$(1)-pages:
 # Uninstall
 .PHONY: uninstall-man$(1)-pages
 uninstall-man$(1)-pages:
-	rm -f $(addprefix $(DESTDIR)$(mandir)/,$(DOC_MAN$(1)))
+	rm -f $(addprefix $(DESTDIR)$(mandir)/man$(1)/, $(filter-out %.pod.$(1) %.markdown.$(1), $(notdir $(DOC_MAN$(1)))))
 
 # Link buld/install/clean to toplevel rules
 man-pages: man$(1)-pages
@@ -172,7 +180,7 @@ uninstall-man-pages: uninstall-man$(1)-pages
 endef
 
 # Generate manpage rules for each section
-$(foreach i,$(MAN_SECTIONS),$(eval $(call GENERATE_MANPAGE_RULES,$(i))))
+$(foreach i,1 5 7 8,$(eval $(call GENERATE_MANPAGE_RULES,$(i))))
 
 .PHONY: install-html
 install-html: html txt figs
@@ -192,6 +200,14 @@ uninstall: uninstall-man-pages uninstall-html
 # Individual file build targets
 html/index.html: $(DOC_HTML) $(CURDIR)/gen-html-index INDEX
 	$(PERL) -w -- $(CURDIR)/gen-html-index -i INDEX html $(DOC_HTML)
+
+html/%.html: %.markdown
+ifneq ($(MARKDOWN),)
+	@$(INSTALL_DIR) $(@D)
+	$(MARKDOWN) $< > $@
+else
+	@echo "markdown not installed; skipping $@"
+endif
 
 html/%.txt: %.txt
 	@$(INSTALL_DIR) $(@D)
@@ -217,6 +233,10 @@ txt/%.txt: %.txt
 	@$(INSTALL_DIR) $(@D)
 	$(INSTALL_DATA) $< $@
 
+txt/%.txt: %.markdown
+	@$(INSTALL_DIR) $(@D)
+	$(INSTALL_DATA) $< $@
+
 # Metarule for generating pandoc rules.
 define GENERATE_PANDOC_RULE_RAW
 $(1): $(2)
@@ -231,12 +251,12 @@ define GENERATE_PANDOC_RULE
 # $(1) is the target documentation format. $(2) is the source format.
 $(call GENERATE_PANDOC_RULE_RAW,$(1)/%.$(1),%.$(2))
 endef
+$(eval $(call GENERATE_PANDOC_RULE,pdf,pandoc))   # pdf/%.pdf: %.pandoc
+$(eval $(call GENERATE_PANDOC_RULE,txt,pandoc))   # txt/%.txt: %.pandoc
+$(eval $(call GENERATE_PANDOC_RULE,html,pandoc))  # html/%.html: %.pandoc
+$(eval $(call GENERATE_PANDOC_RULE,pdf,markdown)) # pdf/%.pdf: %.markdown
 
-$(foreach dst-fmt,pdf txt html,\
-$(foreach src-fmt,pandoc md rst,\
-$(eval $(call GENERATE_PANDOC_RULE,$(dst-fmt),$(src-fmt)))))
-
-$(eval $(call GENERATE_PANDOC_RULE_RAW,html/SUPPORT.html,$(XEN_ROOT)/SUPPORT.md))
+$(eval $(call GENERATE_PANDOC_RULE_RAW,html/SUPPORT.html,$(XEN_ROOT)/SUPPORT.md)) # pdf/%.pdf: %.markdown
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 $(XEN_ROOT)/config/Docs.mk:

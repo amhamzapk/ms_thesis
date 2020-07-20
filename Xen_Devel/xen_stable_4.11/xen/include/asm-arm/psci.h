@@ -20,7 +20,6 @@ extern uint32_t psci_ver;
 
 int psci_init(void);
 int call_psci_cpu_on(int cpu);
-void call_psci_cpu_off(void);
 void call_psci_system_off(void);
 void call_psci_system_reset(void);
 

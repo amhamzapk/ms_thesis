@@ -15,11 +15,10 @@
 #include <xen/types.h>
 #include <xen/errno.h>
 #include <xen/init.h>
-#include <xen/param.h>
 #include <xen/string.h>
 #include <xen/delay.h>
 #include <xen/xenoprof.h>
-#include <public/xenoprof.h>
+#include <public/xen.h>
 #include <asm/msr.h>
 #include <asm/apic.h>
 #include <asm/regs.h>
@@ -93,7 +92,7 @@ static int nmi_callback(const struct cpu_user_regs *regs, int cpu)
 		send_guest_vcpu_virq(current, VIRQ_XENOPROF);
 
 	if ( ovf == 2 )
-		current->arch.nmi_pending = true;
+                current->nmi_pending = 1;
 	return 1;
 }
 

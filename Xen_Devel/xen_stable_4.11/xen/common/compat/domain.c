@@ -3,7 +3,7 @@
  *
  */
 
-EMIT_FILE;
+asm(".file \"" __FILE__ "\"");
 
 #include <xen/lib.h>
 #include <xen/sched.h>
@@ -39,7 +39,7 @@ int compat_vcpu_op(int cmd, unsigned int vcpuid, XEN_GUEST_HANDLE_PARAM(void) ar
     struct vcpu *v;
     int rc = 0;
 
-    if ( (v = domain_vcpu(d, vcpuid)) == NULL )
+    if ( vcpuid >= d->max_vcpus || (v = d->vcpu[vcpuid]) == NULL )
         return -ENOENT;
 
     switch ( cmd )

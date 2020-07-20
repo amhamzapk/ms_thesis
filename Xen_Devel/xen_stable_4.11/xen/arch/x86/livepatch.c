@@ -11,10 +11,7 @@
 #include <xen/livepatch_elf.h>
 #include <xen/livepatch.h>
 #include <xen/sched.h>
-#include <xen/vm_event.h>
-#include <xen/virtual_region.h>
 
-#include <asm/fixmap.h>
 #include <asm/nmi.h>
 #include <asm/livepatch.h>
 
@@ -38,14 +35,10 @@ int arch_livepatch_safety_check(void)
 
     for_each_domain ( d )
     {
-#ifdef CONFIG_MEM_SHARING
         if ( has_active_waitqueue(d->vm_event_share) )
             goto fail;
-#endif
-#ifdef CONFIG_MEM_PAGING
         if ( has_active_waitqueue(d->vm_event_paging) )
             goto fail;
-#endif
         if ( has_active_waitqueue(d->vm_event_monitor) )
             goto fail;
     }
@@ -57,48 +50,18 @@ int arch_livepatch_safety_check(void)
     return -EBUSY;
 }
 
-int noinline arch_livepatch_quiesce(void)
+int arch_livepatch_quiesce(void)
 {
-    /* If Shadow Stacks are in use, disable CR4.CET so we can modify CR0.WP. */
-    if ( cpu_has_xen_shstk )
-        write_cr4(read_cr4() & ~X86_CR4_CET);
-
     /* Disable WP to allow changes to read-only pages. */
     write_cr0(read_cr0() & ~X86_CR0_WP);
 
     return 0;
 }
 
-void noinline arch_livepatch_revive(void)
+void arch_livepatch_revive(void)
 {
     /* Reinstate WP. */
     write_cr0(read_cr0() | X86_CR0_WP);
-
-    /* Clobber dirty bits and reinstate CET, if applicable. */
-    if ( IS_ENABLED(CONFIG_XEN_SHSTK) && cpu_has_xen_shstk )
-    {
-        unsigned long tmp;
-
-        reset_virtual_region_perms();
-
-        write_cr4(read_cr4() | X86_CR4_CET);
-
-        /*
-         * Fix up the return address on the shadow stack, which currently
-         * points at arch_livepatch_quiesce()'s caller.
-         *
-         * Note: this is somewhat fragile, and depends on both
-         * arch_livepatch_{quiesce,revive}() being called from the same
-         * function, which is currently the case.
-         *
-         * Any error will result in Xen dying with #CP, and its too late to
-         * recover in any way.
-         */
-        asm volatile ("rdsspq %[ssp];"
-                      "wrssq %[addr], (%[ssp]);"
-                      : [ssp] "=&r" (tmp)
-                      : [addr] "r" (__builtin_return_address(0)));
-    }
 }
 
 int arch_livepatch_verify_func(const struct livepatch_func *func)
@@ -199,8 +162,8 @@ int arch_livepatch_verify_elf(const struct livepatch_elf *elf)
          hdr->e_ident[EI_CLASS] != ELFCLASS64 ||
          hdr->e_ident[EI_DATA] != ELFDATA2LSB )
     {
-        printk(XENLOG_ERR LIVEPATCH "%s: Unsupported ELF Machine type\n",
-               elf->name);
+        dprintk(XENLOG_ERR, LIVEPATCH "%s: Unsupported ELF Machine type!\n",
+                elf->name);
         return -EOPNOTSUPP;
     }
 
@@ -225,8 +188,8 @@ int arch_livepatch_perform_rel(struct livepatch_elf *elf,
                                const struct livepatch_elf_sec *base,
                                const struct livepatch_elf_sec *rela)
 {
-    printk(XENLOG_ERR LIVEPATCH "%s: SHT_REL relocation unsupported\n",
-           elf->name);
+    dprintk(XENLOG_ERR, LIVEPATCH "%s: SHT_REL relocation unsupported\n",
+            elf->name);
     return -EOPNOTSUPP;
 }
 
@@ -245,20 +208,20 @@ int arch_livepatch_perform_rela(struct livepatch_elf *elf,
 
         if ( symndx == STN_UNDEF )
         {
-            printk(XENLOG_ERR LIVEPATCH "%s: Encountered STN_UNDEF\n",
-                   elf->name);
+            dprintk(XENLOG_ERR, LIVEPATCH "%s: Encountered STN_UNDEF\n",
+                    elf->name);
             return -EOPNOTSUPP;
         }
         else if ( symndx >= elf->nsym )
         {
-            printk(XENLOG_ERR LIVEPATCH "%s: Relative relocation wants symbol@%u which is past end\n",
-                   elf->name, symndx);
+            dprintk(XENLOG_ERR, LIVEPATCH "%s: Relative relocation wants symbol@%u which is past end!\n",
+                    elf->name, symndx);
             return -EINVAL;
         }
         else if ( !elf->sym[symndx].sym )
         {
-            printk(XENLOG_ERR LIVEPATCH "%s: No symbol@%u\n",
-                   elf->name, symndx);
+            dprintk(XENLOG_ERR, LIVEPATCH "%s: No symbol@%u\n",
+                    elf->name, symndx);
             return -EINVAL;
         }
 
@@ -295,15 +258,15 @@ int arch_livepatch_perform_rela(struct livepatch_elf *elf,
             *(int32_t *)dest = val;
             if ( (int64_t)val != *(int32_t *)dest )
             {
-                printk(XENLOG_ERR LIVEPATCH "%s: Overflow in relocation %u in %s for %s\n",
-                       elf->name, i, rela->name, base->name);
+                dprintk(XENLOG_ERR, LIVEPATCH "%s: Overflow in relocation %u in %s for %s!\n",
+                        elf->name, i, rela->name, base->name);
                 return -EOVERFLOW;
             }
             break;
 
         default:
-            printk(XENLOG_ERR LIVEPATCH "%s: Unhandled relocation %lu\n",
-                   elf->name, ELF64_R_TYPE(r->r_info));
+            dprintk(XENLOG_ERR, LIVEPATCH "%s: Unhandled relocation %lu\n",
+                    elf->name, ELF64_R_TYPE(r->r_info));
             return -EOPNOTSUPP;
         }
     }
@@ -311,8 +274,8 @@ int arch_livepatch_perform_rela(struct livepatch_elf *elf,
     return 0;
 
  bad_offset:
-    printk(XENLOG_ERR LIVEPATCH "%s: Relative relocation offset is past %s section\n",
-           elf->name, base->name);
+    dprintk(XENLOG_ERR, LIVEPATCH "%s: Relative relocation offset is past %s section!\n",
+            elf->name, base->name);
     return -EINVAL;
 }
 
@@ -344,7 +307,7 @@ void __init arch_livepatch_init(void)
     void *start, *end;
 
     start = (void *)xen_virt_end;
-    end = (void *)(XEN_VIRT_END - FIXADDR_X_SIZE - NR_CPUS * PAGE_SIZE);
+    end = (void *)(XEN_VIRT_END - NR_CPUS * PAGE_SIZE);
 
     BUG_ON(end <= start);
 

@@ -21,8 +21,8 @@
 
 #include <xen/lib.h>
 #include <xen/rwlock.h>
-
-#include <asm/hsr.h>
+#include <asm/processor.h>
+#include <asm/regs.h>
 
 #define MAX_IO_HANDLER  16
 

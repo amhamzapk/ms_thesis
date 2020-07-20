@@ -17,7 +17,7 @@
  *  along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <xenfsimage_grub.h>
+#include <fsimage_grub.h>
 
 #undef REISERDEBUG
 

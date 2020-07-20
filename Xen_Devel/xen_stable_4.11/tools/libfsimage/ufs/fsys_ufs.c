@@ -22,7 +22,7 @@
 
 /* From Solaris usr/src/stand/lib/fs/ufs/ufsops.c */
 
-#include <xenfsimage_grub.h>
+#include <fsimage_grub.h>
 
 #include "ufs.h"
 

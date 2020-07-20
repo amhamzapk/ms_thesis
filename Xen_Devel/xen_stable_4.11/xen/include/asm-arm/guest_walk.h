@@ -2,10 +2,10 @@
 #define _XEN_GUEST_WALK_H
 
 /* Walk the guest's page tables in software. */
-bool guest_walk_tables(const struct vcpu *v,
-                       vaddr_t gva,
-                       paddr_t *ipa,
-                       unsigned int *perms);
+int guest_walk_tables(const struct vcpu *v,
+                      vaddr_t gva,
+                      paddr_t *ipa,
+                      unsigned int *perms);
 
 #endif /* _XEN_GUEST_WALK_H */
 

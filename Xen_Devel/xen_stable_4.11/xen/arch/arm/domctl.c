@@ -52,22 +52,16 @@ long arch_do_domctl(struct xen_domctl *domctl, struct domain *d,
     {
     case XEN_DOMCTL_cacheflush:
     {
-        gfn_t s = _gfn(domctl->u.cacheflush.start_pfn);
-        gfn_t e = gfn_add(s, domctl->u.cacheflush.nr_pfns);
-        int rc;
+        unsigned long s = domctl->u.cacheflush.start_pfn;
+        unsigned long e = s + domctl->u.cacheflush.nr_pfns;
 
         if ( domctl->u.cacheflush.nr_pfns > (1U<<MAX_ORDER) )
             return -EINVAL;
 
-        if ( gfn_x(e) < gfn_x(s) )
+        if ( e < s )
             return -EINVAL;
 
-        /* XXX: Handle preemption */
-        do
-            rc = p2m_cache_flush_range(d, &s, e);
-        while ( rc == -ERESTART );
-
-        return rc;
+        return p2m_cache_flush(d, _gfn(s), domctl->u.cacheflush.nr_pfns);
     }
     case XEN_DOMCTL_bind_pt_irq:
     {

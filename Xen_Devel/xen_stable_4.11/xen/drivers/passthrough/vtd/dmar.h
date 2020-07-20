@@ -63,7 +63,7 @@ struct acpi_drhd_unit {
     u64    address;                     /* register base address of the unit */
     u16    segment;
     u8     include_all:1;
-    struct vtd_iommu *iommu;
+    struct iommu *iommu;
     struct list_head ioapic_list;
     struct list_head hpet_list;
 };
@@ -119,7 +119,7 @@ do {                                                \
             if ( !kexecing )                                    \
             {                                                   \
                 dump_execution_state();                         \
-                panic("DMAR hardware malfunction\n");           \
+                panic("DMAR hardware malfunction");             \
             }                                                   \
             break;                                              \
         }                                                       \
@@ -128,7 +128,7 @@ do {                                                \
 } while (0)
 
 int vtd_hw_check(void);
-void disable_pmr(struct vtd_iommu *iommu);
+void disable_pmr(struct iommu *iommu);
 int is_igd_drhd(struct acpi_drhd_unit *drhd);
 
 #endif /* _DMAR_H_ */

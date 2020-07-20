@@ -15,8 +15,7 @@ RUN apt-get update && \
         zlib1g-dev \
         libncurses5-dev \
         libssl-dev \
-        python-dev \
-        python3-dev \
+        python2.7-dev \
         xorg-dev \
         uuid-dev \
         libyajl-dev \
@@ -42,7 +41,6 @@ RUN apt-get update && \
         checkpolicy \
         wget \
         git \
-        nasm \
         && \
         apt-get autoremove -y && \
         apt-get clean && \

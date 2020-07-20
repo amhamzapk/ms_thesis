@@ -20,14 +20,19 @@
 #ifndef __ASM_X86_HVM_DOMAIN_H__
 #define __ASM_X86_HVM_DOMAIN_H__
 
-#include <xen/list.h>
-#include <xen/mm.h>
-#include <xen/radix-tree.h>
-
+#include <xen/iommu.h>
+#include <asm/hvm/irq.h>
+#include <asm/hvm/vpt.h>
+#include <asm/hvm/vlapic.h>
+#include <asm/hvm/vioapic.h>
 #include <asm/hvm/io.h>
+#include <asm/hvm/viridian.h>
 #include <asm/hvm/vmx/vmcs.h>
 #include <asm/hvm/svm/vmcb.h>
-
+#include <public/grant_table.h>
+#include <public/hvm/params.h>
+#include <public/hvm/save.h>
+#include <public/hvm/hvm_op.h>
 #include <public/hvm/dm_op.h>
 
 struct hvm_ioreq_page {
@@ -64,19 +69,6 @@ struct hvm_ioreq_server {
     uint8_t                bufioreq_handling;
 };
 
-#ifdef CONFIG_MEM_SHARING
-struct mem_sharing_domain
-{
-    bool enabled, block_interrupts;
-
-    /*
-     * When releasing shared gfn's in a preemptible manner, recall where
-     * to resume the search.
-     */
-    unsigned long next_shared_gfn_to_relinquish;
-};
-#endif
-
 /*
  * This structure defines function hooks to support hardware-assisted
  * virtual interrupt delivery to guest. (e.g. VMX PI and SVM AVIC).
@@ -88,23 +80,30 @@ struct mem_sharing_domain
  *     and actually has a physical device assigned .
  */
 struct hvm_pi_ops {
-    unsigned int flags;
+    /* Hook into ctx_switch_from. */
+    void (*switch_from)(struct vcpu *v);
+
+    /* Hook into ctx_switch_to. */
+    void (*switch_to)(struct vcpu *v);
 
     /*
      * Hook into arch_vcpu_block(), which is called
      * from vcpu_block() and vcpu_do_poll().
      */
     void (*vcpu_block)(struct vcpu *);
+
+    /* Hook into the vmentry path. */
+    void (*do_resume)(struct vcpu *v);
 };
 
 #define MAX_NR_IOREQ_SERVERS 8
+#define DEFAULT_IOSERVID 0
 
 struct hvm_domain {
     /* Guest page range used for non-default ioreq servers */
     struct {
         unsigned long base;
-        unsigned long mask; /* indexed by GFN minus base */
-        unsigned long legacy_mask; /* indexed by HVM param number */
+        unsigned long mask;
     } ioreq_gfn;
 
     /* Lock protects all other values in the sub-struct and the default */
@@ -162,8 +161,10 @@ struct hvm_domain {
     /* hypervisor intercepted msix table */
     struct list_head       msixtbl_list;
 
-    struct viridian_domain *viridian;
+    struct viridian_domain viridian;
 
+    bool_t                 hap_enabled;
+    bool_t                 mem_sharing_enabled;
     bool_t                 qemu_mapcache_invalidate;
     bool_t                 is_s3_suspended;
 
@@ -199,11 +200,9 @@ struct hvm_domain {
         struct vmx_domain vmx;
         struct svm_domain svm;
     };
-
-#ifdef CONFIG_MEM_SHARING
-    struct mem_sharing_domain mem_sharing;
-#endif
 };
+
+#define hap_enabled(d)  ((d)->arch.hvm_domain.hap_enabled)
 
 #endif /* __ASM_X86_HVM_DOMAIN_H__ */
 

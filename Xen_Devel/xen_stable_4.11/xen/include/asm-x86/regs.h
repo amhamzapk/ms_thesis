@@ -15,4 +15,6 @@
     (diff == 0);                                                              \
 })
 
+#define return_reg(v) ((v)->arch.user_regs.rax)
+
 #endif /* __X86_REGS_H__ */

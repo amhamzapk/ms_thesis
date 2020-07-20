@@ -15,6 +15,8 @@
 
 static xc_interface *xch;
 
+#define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
+
 void show_help(void)
 {
     fprintf(stderr,

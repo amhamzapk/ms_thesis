@@ -20,7 +20,7 @@
 
 static DEFINE_PER_CPU(struct processor *, processor);
 
-void processor_setup(void)
+void __init processor_setup(void)
 {
     const struct proc_info_list *procinfo;
 

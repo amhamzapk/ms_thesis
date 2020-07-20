@@ -1,7 +1,6 @@
 #ifndef __ARM_TIME_H__
 #define __ARM_TIME_H__
 
-#include <asm/sysregs.h>
 #include <asm/system.h>
 
 #define DT_MATCH_TIMER                      \

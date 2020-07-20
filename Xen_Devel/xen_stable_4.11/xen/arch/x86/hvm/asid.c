@@ -18,14 +18,13 @@
 
 #include <xen/init.h>
 #include <xen/lib.h>
-#include <xen/param.h>
 #include <xen/sched.h>
 #include <xen/smp.h>
 #include <xen/percpu.h>
 #include <asm/hvm/asid.h>
 
 /* Xen command-line option to enable ASIDs */
-static bool __read_mostly opt_asid_enabled = true;
+static int opt_asid_enabled = 1;
 boolean_param("asid", opt_asid_enabled);
 
 /*
@@ -83,12 +82,12 @@ void hvm_asid_init(int nasids)
 
 void hvm_asid_flush_vcpu_asid(struct hvm_vcpu_asid *asid)
 {
-    write_atomic(&asid->generation, 0);
+    asid->generation = 0;
 }
 
 void hvm_asid_flush_vcpu(struct vcpu *v)
 {
-    hvm_asid_flush_vcpu_asid(&v->arch.hvm.n1asid);
+    hvm_asid_flush_vcpu_asid(&v->arch.hvm_vcpu.n1asid);
     hvm_asid_flush_vcpu_asid(&vcpu_nestedhvm(v).nv_n2asid);
 }
 
@@ -121,7 +120,7 @@ bool_t hvm_asid_handle_vmenter(struct hvm_vcpu_asid *asid)
         goto disabled;
 
     /* Test if VCPU has valid ASID. */
-    if ( read_atomic(&asid->generation) == data->core_asid_generation )
+    if ( asid->generation == data->core_asid_generation )
         return 0;
 
     /* If there are no free ASIDs, need to go to a new generation */
@@ -135,7 +134,7 @@ bool_t hvm_asid_handle_vmenter(struct hvm_vcpu_asid *asid)
 
     /* Now guaranteed to be a free ASID. */
     asid->asid = data->next_asid++;
-    write_atomic(&asid->generation, data->core_asid_generation);
+    asid->generation = data->core_asid_generation;
 
     /*
      * When we assign ASID 1, flush all TLB entries as we are starting a new

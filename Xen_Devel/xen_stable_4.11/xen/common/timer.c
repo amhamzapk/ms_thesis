@@ -10,7 +10,6 @@
 #include <xen/errno.h>
 #include <xen/sched.h>
 #include <xen/lib.h>
-#include <xen/param.h>
 #include <xen/smp.h>
 #include <xen/perfc.h>
 #include <xen/time.h>
@@ -46,27 +45,18 @@ DEFINE_PER_CPU(s_time_t, timer_deadline);
 
 /****************************************************************************
  * HEAP OPERATIONS.
- *
- * Slot 0 of the heap is never a valid timer pointer, and instead holds the
- * heap metadata.
  */
 
-struct heap_metadata {
-    uint16_t size, limit;
-};
+#define GET_HEAP_SIZE(_h)     ((int)(((u16 *)(_h))[0]))
+#define SET_HEAP_SIZE(_h,_v)  (((u16 *)(_h))[0] = (u16)(_v))
 
-static struct heap_metadata *heap_metadata(struct timer **heap)
-{
-    /* Check that our type-punning doesn't overflow into heap[1] */
-    BUILD_BUG_ON(sizeof(struct heap_metadata) > sizeof(struct timer *));
-
-    return (struct heap_metadata *)&heap[0];
-}
+#define GET_HEAP_LIMIT(_h)    ((int)(((u16 *)(_h))[1]))
+#define SET_HEAP_LIMIT(_h,_v) (((u16 *)(_h))[1] = (u16)(_v))
 
 /* Sink down element @pos of @heap. */
-static void down_heap(struct timer **heap, unsigned int pos)
+static void down_heap(struct timer **heap, int pos)
 {
-    unsigned int sz = heap_metadata(heap)->size, nxt;
+    int sz = GET_HEAP_SIZE(heap), nxt;
     struct timer *t = heap[pos];
 
     while ( (nxt = (pos << 1)) <= sz )
@@ -85,7 +75,7 @@ static void down_heap(struct timer **heap, unsigned int pos)
 }
 
 /* Float element @pos up @heap. */
-static void up_heap(struct timer **heap, unsigned int pos)
+static void up_heap(struct timer **heap, int pos)
 {
     struct timer *t = heap[pos];
 
@@ -104,19 +94,19 @@ static void up_heap(struct timer **heap, unsigned int pos)
 /* Delete @t from @heap. Return TRUE if new top of heap. */
 static int remove_from_heap(struct timer **heap, struct timer *t)
 {
-    unsigned int sz = heap_metadata(heap)->size;
-    unsigned int pos = t->heap_offset;
+    int sz = GET_HEAP_SIZE(heap);
+    int pos = t->heap_offset;
 
     if ( unlikely(pos == sz) )
     {
-        heap_metadata(heap)->size = sz - 1;
+        SET_HEAP_SIZE(heap, sz-1);
         goto out;
     }
 
     heap[pos] = heap[sz];
     heap[pos]->heap_offset = pos;
 
-    heap_metadata(heap)->size = --sz;
+    SET_HEAP_SIZE(heap, --sz);
 
     if ( (pos > 1) && (heap[pos]->expires < heap[pos>>1]->expires) )
         up_heap(heap, pos);
@@ -131,13 +121,13 @@ static int remove_from_heap(struct timer **heap, struct timer *t)
 /* Add new entry @t to @heap. Return TRUE if new top of heap. */
 static int add_to_heap(struct timer **heap, struct timer *t)
 {
-    unsigned int sz = heap_metadata(heap)->size;
+    int sz = GET_HEAP_SIZE(heap);
 
     /* Fail if the heap is full. */
-    if ( unlikely(sz == heap_metadata(heap)->limit) )
+    if ( unlikely(sz == GET_HEAP_LIMIT(heap)) )
         return 0;
 
-    heap_metadata(heap)->size = ++sz;
+    SET_HEAP_SIZE(heap, ++sz);
     heap[sz] = t;
     t->heap_offset = sz;
     up_heap(heap, sz);
@@ -283,10 +273,11 @@ static inline void timer_unlock(struct timer *timer)
 })
 
 
-static bool active_timer(const struct timer *timer)
+static bool_t active_timer(struct timer *timer)
 {
     ASSERT(timer->status >= TIMER_STATUS_inactive);
-    return timer_is_active(timer);
+    ASSERT(timer->status <= TIMER_STATUS_in_list);
+    return (timer->status >= TIMER_STATUS_in_heap);
 }
 
 
@@ -463,22 +454,14 @@ static void timer_softirq_action(void)
     if ( unlikely(ts->list != NULL) )
     {
         /* old_limit == (2^n)-1; new_limit == (2^(n+4))-1 */
-        unsigned int old_limit = heap_metadata(heap)->limit;
-        unsigned int new_limit = ((old_limit + 1) << 4) - 1;
-        struct timer **newheap = NULL;
-
-        /* Don't grow the heap beyond what is representable in its metadata. */
-        if ( new_limit == (typeof(heap_metadata(heap)->limit))new_limit &&
-             new_limit + 1 )
-            newheap = xmalloc_array(struct timer *, new_limit + 1);
-        else
-            printk_once(XENLOG_WARNING "CPU%u: timer heap limit reached\n",
-                        smp_processor_id());
+        int old_limit = GET_HEAP_LIMIT(heap);
+        int new_limit = ((old_limit + 1) << 4) - 1;
+        struct timer **newheap = xmalloc_array(struct timer *, new_limit + 1);
         if ( newheap != NULL )
         {
             spin_lock_irq(&ts->lock);
             memcpy(newheap, heap, (old_limit + 1) * sizeof(*heap));
-            heap_metadata(newheap)->limit = new_limit;
+            SET_HEAP_LIMIT(newheap, new_limit);
             ts->heap = newheap;
             spin_unlock_irq(&ts->lock);
             if ( old_limit != 0 )
@@ -492,7 +475,7 @@ static void timer_softirq_action(void)
     now = NOW();
 
     /* Execute ready heap timers. */
-    while ( (heap_metadata(heap)->size != 0) &&
+    while ( (GET_HEAP_SIZE(heap) != 0) &&
             ((t = heap[1])->expires < now) )
     {
         remove_from_heap(heap, t);
@@ -518,7 +501,7 @@ static void timer_softirq_action(void)
 
     /* Find earliest deadline from head of linked list and top of heap. */
     deadline = STIME_MAX;
-    if ( heap_metadata(heap)->size != 0 )
+    if ( GET_HEAP_SIZE(heap) != 0 )
         deadline = heap[1]->expires;
     if ( (ts->list != NULL) && (ts->list->expires < deadline) )
         deadline = ts->list->expires;
@@ -552,7 +535,7 @@ static void dump_timerq(unsigned char key)
     struct timers *ts;
     unsigned long  flags;
     s_time_t       now = NOW();
-    unsigned int   i, j;
+    int            i, j;
 
     printk("Dumping timer queues:\n");
 
@@ -562,9 +545,9 @@ static void dump_timerq(unsigned char key)
 
         printk("CPU%02d:\n", i);
         spin_lock_irqsave(&ts->lock, flags);
-        for ( j = 1; j <= heap_metadata(ts->heap)->size; j++ )
+        for ( j = 1; j <= GET_HEAP_SIZE(ts->heap); j++ )
             dump_timer(ts->heap[j], now);
-        for ( t = ts->list; t != NULL; t = t->list_next )
+        for ( t = ts->list, j = 0; t != NULL; t = t->list_next, j++ )
             dump_timer(t, now);
         spin_unlock_irqrestore(&ts->lock, flags);
     }
@@ -593,7 +576,7 @@ static void migrate_timers_from_cpu(unsigned int old_cpu)
         spin_lock(&old_ts->lock);
     }
 
-    while ( (t = heap_metadata(old_ts->heap)->size
+    while ( (t = GET_HEAP_SIZE(old_ts->heap)
              ? old_ts->heap[1] : old_ts->list) != NULL )
     {
         remove_entry(t);
@@ -616,25 +599,20 @@ static void migrate_timers_from_cpu(unsigned int old_cpu)
         cpu_raise_softirq(new_cpu, TIMER_SOFTIRQ);
 }
 
-/*
- * All CPUs initially share an empty dummy heap. Only those CPUs that
- * are brought online will be dynamically allocated their own heap.
- * The size/limit metadata are both 0 by being in .bss
- */
-static struct timer *dummy_heap[1];
+static struct timer *dummy_heap;
 
 static void free_percpu_timers(unsigned int cpu)
 {
     struct timers *ts = &per_cpu(timers, cpu);
 
-    ASSERT(heap_metadata(ts->heap)->size == 0);
-    if ( heap_metadata(ts->heap)->limit )
+    ASSERT(GET_HEAP_SIZE(ts->heap) == 0);
+    if ( GET_HEAP_LIMIT(ts->heap) )
     {
         xfree(ts->heap);
-        ts->heap = dummy_heap;
+        ts->heap = &dummy_heap;
     }
     else
-        ASSERT(ts->heap == dummy_heap);
+        ASSERT(ts->heap == &dummy_heap);
 }
 
 static int cpu_callback(
@@ -651,13 +629,12 @@ static int cpu_callback(
         {
             INIT_LIST_HEAD(&ts->inactive);
             spin_lock_init(&ts->lock);
-            ts->heap = dummy_heap;
+            ts->heap = &dummy_heap;
         }
         break;
 
     case CPU_UP_CANCELED:
     case CPU_DEAD:
-    case CPU_RESUME_FAILED:
         migrate_timers_from_cpu(cpu);
 
         if ( !park_offline_cpus && system_state != SYS_STATE_suspend )
@@ -686,6 +663,13 @@ void __init timer_init(void)
     void *cpu = (void *)(long)smp_processor_id();
 
     open_softirq(TIMER_SOFTIRQ, timer_softirq_action);
+
+    /*
+     * All CPUs initially share an empty dummy heap. Only those CPUs that
+     * are brought online will be dynamically allocated their own heap.
+     */
+    SET_HEAP_SIZE(&dummy_heap, 0);
+    SET_HEAP_LIMIT(&dummy_heap, 0);
 
     cpu_callback(&cpu_nfb, CPU_UP_PREPARE, cpu);
     register_cpu_notifier(&cpu_nfb);

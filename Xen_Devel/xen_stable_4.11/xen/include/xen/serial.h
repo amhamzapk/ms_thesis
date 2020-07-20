@@ -64,7 +64,6 @@ struct serial_port {
 struct uart_driver {
     /* Driver initialisation (pre- and post-IRQ subsystem setup). */
     void (*init_preirq)(struct serial_port *);
-    void (*init_irq)(struct serial_port *);
     void (*init_postirq)(struct serial_port *);
     /* Hook to clean up after Xen bootstrap (before domain 0 runs). */
     void (*endboot)(struct serial_port *);
@@ -100,9 +99,8 @@ struct uart_driver {
 #define SERHND_LO       (1<<3) /* Ditto, except that the MSB is cleared.  */
 #define SERHND_COOKED   (1<<4) /* Newline/carriage-return translation?    */
 
-/* Three-stage initialisation (before/during/after IRQ-subsystem setup). */
+/* Two-stage initialisation (before/after IRQ-subsystem initialisation). */
 void serial_init_preirq(void);
-void serial_init_irq(void);
 void serial_init_postirq(void);
 
 /* Clean-up hook before domain 0 runs. */
@@ -114,8 +112,8 @@ int serial_parse_handle(char *conf);
 /* Transmit a single character via the specified COM port. */
 void serial_putc(int handle, char c);
 
-/* Transmit a string via the specified COM port. */
-void serial_puts(int handle, const char *s, size_t nr);
+/* Transmit a NULL-terminated string via the specified COM port. */
+void serial_puts(int handle, const char *s);
 
 /*
  * An alternative to registering a character-receive hook. This function

@@ -22,7 +22,6 @@
  */
 
 #include <xen/acpi.h>
-#include <xen/init.h>
 #include <xen/mm.h>
 
 char *__acpi_map_table(paddr_t phys, unsigned long size)
