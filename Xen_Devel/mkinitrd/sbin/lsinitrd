@@ -1,0 +1,89 @@
+#!/bin/bash
+#
+# lsinitrd - show contents of an initrd image
+#
+# Copyright (C) 2008 SuSE Linux Products GmbH, Nuernberg, Germany
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# This file is kept in the following git repository:
+#
+# https://github.com/openSUSE/mkinitrd.git
+#
+
+usage() {
+    echo "Usage: lsinitrd [-l] [-h] [-c] <initrd>"
+}
+
+verbose=
+config=
+while [ "$1" ] ; do
+    case $1 in
+        -l|--long)
+            verbose=1
+            shift
+            ;;
+        -c|--config)
+            config=1
+            shift
+            ;;
+        -h)
+            usage
+            exit 1
+            ;;
+        -*)
+            echo "Unknown option $1"
+            usage
+            exit 1
+            ;;
+        *)
+            break;
+            ;;
+    esac
+done
+
+uncomp()
+{
+	local uncompress="gzip"
+	case $(file -bL "$1") in
+	gzip\ *)    uncompress="gzip"	;;
+	bzip2\ *)   uncompress="bzip2"	;;
+	LZMA\ *)    uncompress="lzma"	;;
+	XZ\ *)	    uncompress="xz"	;;
+	esac
+	command $uncompress -cdfq < "$1"
+}
+
+
+initrd=$1
+
+if [ -z "$initrd" ] ; then
+    echo "No initrd file specified"
+    usage
+    exit 1
+fi
+
+if [ "$verbose" ] ; then
+    args="-tv"
+else
+    args="-t"
+fi
+
+if [ "$config" ] ; then
+    # yes, that's snow, but doesn't use any temporary files :)
+    for configfile in $(uncomp $initrd | exec cpio --quiet -t | exec grep '^config/') ; do
+        echo "=========> $configfile <============"
+        uncomp $initrd | exec cpio --quiet -i --to-stdout $configfile
+        echo
+    done
+else
+    uncomp $initrd | exec cpio --quiet $args
+fi

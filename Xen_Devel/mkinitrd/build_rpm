@@ -1,0 +1,101 @@
+#!/bin/bash
+#
+# Build a mkinitrd source rpm
+#
+
+DESTDIR="mkinitrd"
+uncommitted_changes=0
+
+while [ $# -gt 0 ] ; do
+    case "$1" in
+        -d)
+            DESTDIR=$2;
+            shift 2;
+            ;;
+        --destdir=*)
+            DESTDIR=${$1#*=};
+            shift;
+            ;;
+        -b)
+            BRANCH=$2;
+            shift 2;
+            ;;
+        --branch=)
+            BRANCH=${1##*=};
+            shift;
+            ;;
+        -f|--force)
+            force=1;
+            shift;
+            ;;
+        --uncommitted-changes)
+            uncommitted_changes=1
+            shift;
+            ;;
+        *)
+            echo "Usage: build_rpm [-f] [-d dir|--destdir=DIR] " \
+                 "[-b BRANCH|--branch=BRANCH] [--uncommitted-changes]"
+            exit 1;
+            ;;
+    esac
+done
+
+# get the version from the source file, not from the spec file
+eval $(grep '^VERSION' sbin/mkinitrd)
+
+if ! which git > /dev/null ; then
+    echo "git not found, cannot continue"
+    exit 1
+fi
+
+if [ -z "$BRANCH" ] ; then
+    BRANCH=$(sed -n 's|^ref: refs/heads/||p' .git/HEAD)
+    if test -z "$BRANCH"; then
+	    BRANCH=HEAD
+    fi
+    echo "Branch is not set, checking out from $BRANCH"
+fi
+if ! git rev-parse "$BRANCH" >/dev/null; then
+    echo "Branch \"$BRANCH\" does not exist"
+    exit 1
+fi
+
+if test -f "$DESTDIR"/_link ; then
+    osc_link="`mktemp`"
+    cat "$DESTDIR"/_link > "$osc_link"
+    rm -f "$DESTDIR"/*
+    cat "$osc_link" > "$DESTDIR"/_link
+    rm -f "$osc_link"
+else
+    rm -f "$DESTDIR"/*
+fi
+if ! mkdir -p $DESTDIR ; then
+    echo "Cannot create directory $DESTDIR"
+    exit 1
+fi
+
+git archive --format=tar --prefix=mkinitrd-$VERSION/ "$BRANCH" \
+    | bzip2 > $DESTDIR/mkinitrd.tar.bz2
+
+git show $BRANCH:mkinitrd.spec > $DESTDIR/mkinitrd.spec
+git show $BRANCH:mkinitrd.changes > $DESTDIR/mkinitrd.changes
+
+# version
+sed -i "s/@@VERSION@@/$VERSION/g" $DESTDIR/mkinitrd.spec
+
+#
+# if the user specified
+if (( $uncommitted_changes )) ; then
+    echo "WARNING: Including uncommitted changes for testing." >&2
+    echo "         Don't submit the package to Autobuild!"     >&2
+
+    patchname=mkinitrd-$(date -u +%Y-%M-%d_%T_%Z).diff
+    git diff HEAD > $DESTDIR/$patchname
+
+    sed -i 's#%setup#%setup\n%patch0 -p1#g' \
+        $DESTDIR/mkinitrd.spec
+    sed -i "s#\(Source0:.*\)#\1\nPatch0:         $patchname#g" \
+        $DESTDIR/mkinitrd.spec
+fi
+
+echo "mkinitrd src rpm copied to $DESTDIR"

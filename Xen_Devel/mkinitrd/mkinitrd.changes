@@ -1,0 +1,4148 @@
+-------------------------------------------------------------------
+Fri Jun 19 07:49:06 UTC 2015 - ohering@suse.de
+
+- Start emergency shell if fsck left filesystem errors uncorrected
+  instead of booting into the system (bnc#873919)
+- Handle all fsck exit codes
+
+-------------------------------------------------------------------
+Fri Jan 30 14:46:26 CET 2015 - ohering@suse.de
+
+- Remove patches which should have been placed into git
+  fix-purge-kernel-with-git-versioning.patch
+  mkinitrd-check_for_bcache_block_device.patch
+  mkinitrd-add_bcache_udev_rule.patch
+
+-------------------------------------------------------------------
+Mon Oct  6 22:35:35 UTC 2014 - wbauer@tmo.at
+
+- Added fix-purge-kernel-with-git-versioning.patch:
+  fix purge-kernels for Tumbleweed and Kernel:xxx repos (boo#820367)
+
+-------------------------------------------------------------------
+Tue Jul  8 16:52:47 UTC 2014 - trenn@suse.de
+
+- Make booting from bcache devices possible
+  bnc#880846
+  Add mkinitrd-check_for_bcache_block_device.patch
+  bnc#880845
+  Add mkinitrd-add_bcache_udev_rule.patch
+
+-------------------------------------------------------------------
+Tue Jan 14 12:25:42 CET 2014 - hare@suse.de
+
+- Add cciss compat rules to mkinitrd (bnc#858663)
+
+-------------------------------------------------------------------
+Thu Dec 19 18:55:23 UTC 2013 - lduncan@suse.com
+
+- Support second ibft iscsi interface (bnc#830968)
+
+-------------------------------------------------------------------
+Fri Nov 29 13:58:34 CET 2013 - hare@suse.de
+
+- Wait for multipath devices when MD is active (bnc#848293).
+
+-------------------------------------------------------------------
+Tue Oct 29 18:25:41 CET 2013 - ohering@suse.de
+
+- Fix code which handles missing or incomplete fstab (bnc#848038)
+
+-------------------------------------------------------------------
+Sun Oct 27 21:24:20 CET 2013 - ohering@suse.de
+
+- Resolve also library dependencies of libnss (bnc#847785)
+
+-------------------------------------------------------------------
+Thu Oct 17 11:13:30 CEST 2013 - ohering@suse.de
+
+- Version 2.8.1
+
+-------------------------------------------------------------------
+Thu Oct 17 11:03:47 CEST 2013 - rmilasan@suse.com
+
+- Add support for predictable network interface names (bnc#820407)
+
+-------------------------------------------------------------------
+Tue Oct 15 12:48:36 CEST 2013 - mmarek@suse.cz
+
+-  Add support for root_no_dm=1 and root_no_mpath=1 kernel
+   commandline options to tell the initrd not to insist that the
+   root device be device-mapper or multipath, respectively.
+   (bnc#815185)
+
+-------------------------------------------------------------------
+Tue Oct 15 12:32:27 CEST 2013 - ptesarik@suse.com
+
+- Add eadm_sch module to initrd for scm devices (bnc#820690)
+
+-------------------------------------------------------------------
+Wed Oct  9 20:27:02 UTC 2013 - jeffm@suse.com
+
+- Add missing PCI USB HCI modules (bnc#839071).
+
+-------------------------------------------------------------------
+Tue Oct  1 18:30:59 CEST 2013 - ohering@suse.de
+
+- Include hyperv-keyboard if running in hyper-v guest (fate#315887)
+
+-------------------------------------------------------------------
+Tue Oct  1 15:56:32 UTC 2013 - mkubecek@suse.cz
+
+- Fix iSCSI boot over IPv6 (bnc#830621)
+
+-------------------------------------------------------------------
+Tue Sep 24 17:16:19 CEST 2013 - ohering@suse.de
+
+- Version 2.8.0
+
+-------------------------------------------------------------------
+Tue Sep 24 16:29:51 CEST 2013 - ohering@suse.de
+
+- Add support for root=/dev/nfs (bnc#617830).
+
+-------------------------------------------------------------------
+Tue Sep 24 15:32:46 CEST 2013 - ohering@suse.de
+
+- Add a support for "tmpfs_options" option on command line
+  (bnc#483965).
+
+-------------------------------------------------------------------
+Sun Sep 22 19:19:25 CEST 2013 - ohering@suse.de
+
+- Check if kver/kernel/drivers/scsi/device_handler/ exists before
+  searching for scsi_dh_* modules (bnc#727428)
+
+-------------------------------------------------------------------
+Wed Sep 18 15:48:09 CEST 2013 - ohering@suse.de
+
+- Conflicts with mdadm older than 3.3 after previous change (bnc#838777)
+
+-------------------------------------------------------------------
+Thu Sep 12 01:02:49 UTC 2013 - nfbrown@suse.com
+
+- Two improvements for md
+  1/ Don't install the udev rules file 64-md-raid.rules.
+     It has been renamed to 2 different files, and the mdadm
+     package installs it now.
+  2/ Run "mdadm -IRs" at half-time when waiting for the root
+     device to appear.
+     This will start any newly-degraded array (weren't degraded
+     when machine was shut down).
+
+-------------------------------------------------------------------
+Tue Sep  3 10:38:29 CEST 2013 - ohering@suse.de
+
+- Fix MODULES_LOADED_ON_BOOT migration, handle unset variable
+
+-------------------------------------------------------------------
+Mon Sep  2 20:51:19 CEST 2013 - ohering@suse.de
+
+- Use loop instead of ipv6 in check_supported_kernel to avoid
+  bogus error in mkinitrd.log. loop will most likely remain a
+  module.
+
+-------------------------------------------------------------------
+Mon Sep  2 19:46:02 CEST 2013 - ohering@suse.de
+
+- Fix mkinitrd -b <dir> without -k/i option (bnc#510767)
+
+-------------------------------------------------------------------
+Mon Sep  2 13:02:07 UTC 2013 - mmarek@suse.cz
+
+- Always include ipv6.ko when iBFT is used (bnc#830621)
+
+-------------------------------------------------------------------
+Fri Aug 30 22:45:38 UTC 2013 - jengelh@inai.de
+
+- Do not ship boot.loadmodules for <= 11.4 (includes SLE11),
+  because aaa_base owns it
+
+-------------------------------------------------------------------
+Mon Aug 26 12:49:34 UTC 2013 - mmarek@suse.com
+
+- Quote options when parsing them (bnc#835479).
+
+-------------------------------------------------------------------
+Thu Aug  8 10:31:25 CEST 2013 - ohering@suse.de
+
+- Include /etc/e2fsck.conf to get broken_system_clock=1 (bnc#775268)
+
+-------------------------------------------------------------------
+Thu Aug  8 08:30:17 UTC 2013 - mmarek@suse.cz
+
+- Include modules.order in the initrd.
+
+-------------------------------------------------------------------
+Sun Aug  4 16:29:03 CEST 2013 - ohering@suse.de
+
+- Print copied firmware files only once
+
+-------------------------------------------------------------------
+Sun Aug  4 16:27:35 CEST 2013 - ohering@suse.de
+
+- Include firmware files only once, in /lib/firmware (bnc#713126)
+
+-------------------------------------------------------------------
+Sun Aug  4 10:47:08 CEST 2013 - ohering@suse.de
+
+- Fix parsing of disabled modules in RESOLVED_INITRD_MODULES (bnc#696959)
+
+-------------------------------------------------------------------
+Wed Jul 31 19:47:41 CEST 2013 - ohering@suse.de
+
+- Migrate /etc/sysconfig/kernel:MODULES_LOADED_ON_BOOT to
+  /etc/modules-load.d/MODULES_LOADED_ON_BOOT.conf (bnc#768423)
+
+-------------------------------------------------------------------
+Wed Jul 31 17:42:59 CEST 2013 - ohering@suse.de
+
+- Remove useless console output before starting splash (doing fast
+  boot, Creating device nodes with udev) (bnc#775982)
+
+-------------------------------------------------------------------
+Wed Jul 31 17:33:48 CEST 2013 - ohering@suse.de
+
+- Fix parsing of /etc/sysconfig/initrd (bnc#717590)
+
+-------------------------------------------------------------------
+Wed Jul 31 17:21:07 CEST 2013 - ohering@suse.de
+
+- Fix parsing of disabled modules in INTRD_MODULES (bnc#696959)
+
+-------------------------------------------------------------------
+Wed Jul 31 16:59:53 CEST 2013 - ohering@suse.de
+
+- Add blacklist for unused /usr/lib/udev helpers (bnc#757706)
+
+-------------------------------------------------------------------
+Tue Jul 16 11:12:11 CEST 2013 - ohering@suse.de
+
+- Preserve existing /etc/nsswitch.conf in boot-network.sh
+
+-------------------------------------------------------------------
+Tue Jul 16 10:46:21 CEST 2013 - ohering@suse.de
+
+- Remove usage of absolute path to readlink
+
+-------------------------------------------------------------------
+Wed Jul  3 15:25:44 CEST 2013 - schuetzm@gmx.net
+
+- Purge old kernels with low I/O priority
+  As this is run directly at startup, it competes for I/O with the
+  other boot processes.
+
+-------------------------------------------------------------------
+Wed Jun  5 19:26:59 UTC 2013 - mmarek@suse.com
+
+- Add hid modules that are no longer builtin
+
+-------------------------------------------------------------------
+Mon May 27 17:19:35 CEST 2013 - schwab@suse.de
+
+- add support for aarch64
+
+-------------------------------------------------------------------
+Thu May 23 11:02:38 CEST 2013 - ohering@suse.de
+
+- Package 61-msft.rules and sg_inq (bnc#805059)
+
+-------------------------------------------------------------------
+Mon May 13 19:10:09 UTC 2013 - mmarek@suse.com
+
+- Do not overwrite the drvlink variable (bnc#803760)
+
+-------------------------------------------------------------------
+Fri May 10 12:28:01 UTC 2013 - ptesarik@suse.cz
+
+- s390x: add support for scm devices (bnc#814540)
+
+-------------------------------------------------------------------
+Mon May  6 15:39:12 CEST 2013 - agraf@suse.de
+
+- Find modalias for mmc driver
+
+-------------------------------------------------------------------
+Mon May  6 15:37:38 CEST 2013 - agraf@suse.de
+
+- include mmc drivers in monster initrd 
+
+-------------------------------------------------------------------
+Thu May  2 13:56:26 UTC 2013 - rmilasan@suse.com
+
+- setup-storage: Support /dev/md/ subdir
+
+-------------------------------------------------------------------
+Wed Apr 10 12:57:27 CEST 2013 - werner@suse.de
+
+- Switch plymouth and/or splash off before escaping to emergency
+  shell (bnc#809812)
+
+-------------------------------------------------------------------
+Thu Mar 21 15:42:49 CET 2013 - arvidjaar@gmail.com
+
+- fix wrong target dependency (local_fs -> local-fs) (bnc#787075)
+
+-------------------------------------------------------------------
+Thu Mar 21 10:02:09 UTC 2013 - mmarek@suse.cz
+
+- Use the default gzip compression level (bnc#809742).
+
+-------------------------------------------------------------------
+Fri Mar 15 14:49:36 UTC 2013 - mmarek@suse.cz
+
+- Do not refresh the bootloader if no kernels are installed
+  (bnc#804398).
+
+-------------------------------------------------------------------
+Fri Mar 15 10:56:16 UTC 2013 - josef.moellers@ts.fujitsu.com
+
+- Skip static interfaces when configuring dhcp interfaces
+  (bnc#755642).
+
+-------------------------------------------------------------------
+Fri Mar 15 10:42:01 UTC 2013 - hare@suse.de
+
+- Fix boot from mdraid on top of multipath devices (bnc#784613)
+
+-------------------------------------------------------------------
+Tue Mar 12 16:17:20 CET 2013 - ohering@suse.de
+
+- Handle both rootfsopts and rootflags when looking for mount options
+
+-------------------------------------------------------------------
+Wed Mar  6 19:40:12 CET 2013 - ohering@suse.de
+
+- Include hyperv_fb if running in hyper-v guest (fate#314862)
+
+-------------------------------------------------------------------
+Wed Feb 27 19:41:38 CET 2013 - agraf@suse.de
+
+- Add support for zImage on ARM
+
+-------------------------------------------------------------------
+Tue Feb 26 16:11:51 UTC 2013 - mmarek@suse.cz
+
+- Fix typo in man lsinitrd.
+
+-------------------------------------------------------------------
+Mon Feb 25 14:27:14 UTC 2013 - mmarek@suse.cz
+
+- Do not tell the user to refresh the bootloader when generating the
+  kdump initrd. Also, fix the wording of the message (bnc#801984).
+
+-------------------------------------------------------------------
+Fri Feb  1 19:04:15 CET 2013 - werner@suse.de
+
+- Fix boolean typo that is assume local time as default in warpclock.
+
+-------------------------------------------------------------------
+Mon Dec 17 16:07:27 UTC 2012 - mmarek@suse.cz
+
+- Fix typo in purge-kernels.service (bnc#792925).
+
+-------------------------------------------------------------------
+Mon Dec 17 14:55:27 UTC 2012 - lduncan@suse.com
+
+- Handle moving ibft interface between interfaces and subnets
+  (bnc#755642).
+
+-------------------------------------------------------------------
+Fri Dec  7 05:16:54 CET 2012 - jlee@suse.com
+
+- mkinitrd: copy firmware signature files to initrd (fate#314574).
+
+-------------------------------------------------------------------
+Fri Nov  9 18:37:49 CET 2012 - ohering@suse.de
+
+- Version 2.7.2.
+
+-------------------------------------------------------------------
+Fri Nov  9 18:35:28 CET 2012 - ohering@suse.de
+
+- put udev related files into /usr/lib/udev
+  create /lib/udev as symlink
+
+-------------------------------------------------------------------
+Thu Nov  8 15:51:38 CET 2012 - ohering@suse.de
+
+- wrap "_unitdir" file list entry in a suse_version check
+
+-------------------------------------------------------------------
+Thu Nov  8 15:41:34 CET 2012 - ohering@suse.de
+
+- remove blkid handling from setup-udev.sh
+  it is already handled in boot-udev.sh
+
+-------------------------------------------------------------------
+Thu Oct 18 12:36:10 UTC 2012 - werner@suse.de
+
+- Add a new utility for running a command like diff or less on a
+  file in the initrd boot image 
+
+-------------------------------------------------------------------
+Tue Oct 16 13:46:06 UTC 2012 - fcrozat@suse.com
+
+- handle udev from systemd 195.
+
+-------------------------------------------------------------------
+Mon Oct  1 15:05:46 CEST 2012 - ohering@suse.de
+
+- install ipconfig.sh as ipconfig, so that only one copy gets
+  installed into the initrd
+
+-------------------------------------------------------------------
+Mon Oct  1 14:40:31 CEST 2012 - ohering@suse.de
+
+- remove true(1) from program tags, functionality is provided by a script
+
+-------------------------------------------------------------------
+Mon Oct  1 10:05:20 CEST 2012 - ohering@suse.de
+
+- replace cp_bin usage in setup-network.sh with programs tags
+
+-------------------------------------------------------------------
+Sat Sep 29 23:33:58 CEST 2012 - ohering@suse.de
+
+- move some programs tags from boot-start.sh to boot-shell.sh
+- list all programs from linuxrc+ipconfig.sh in boot-start.sh
+
+-------------------------------------------------------------------
+Sat Sep 29 23:22:23 CEST 2012 - ohering@suse.de
+
+- remove usage of absolute paths in programs tags
+
+-------------------------------------------------------------------
+Sat Sep 29 22:34:07 CEST 2012 - ohering@suse.de
+
+- list all tools in boot-* scripts in a programs tag
+
+-------------------------------------------------------------------
+Sat Sep 29 21:41:09 CEST 2012 - ohering@suse.de
+
+- remove usage of absolute paths for executables
+
+-------------------------------------------------------------------
+Fri Sep 28 23:20:23 CEST 2012 - ohering@suse.de
+
+- update cp_bin to handle symlinks properly (bnc#778149)
+
+-------------------------------------------------------------------
+Fri Sep 28 17:58:01 CEST 2012 - ohering@suse.de
+
+- remove suid/sgid from binaries right before creating the initrd
+- make binaries in all four bin directories executable
+
+-------------------------------------------------------------------
+Mon Jul 30 23:12:39 UTC 2012 - jeffm@suse.com
+
+- Version 2.7.1.
+
+-------------------------------------------------------------------
+Mon Jul 30 21:48:12 UTC 2012 - jeffm@suse.com
+
+- Added hid-generic to boot-usb.sh so keyboards are usable in initrd
+  (bnc#773559).
+
+-------------------------------------------------------------------
+Thu Jul 26 07:47:57 UTC 2012 - mmarek@suse.cz
+
+- Add purge-kernels.service to the filelist.
+
+-------------------------------------------------------------------
+Wed Jul 25 20:08:03 UTC 2012 - mvyskocil@suse.cz
+
+- Add purge-kernels.service
+
+-------------------------------------------------------------------
+Thu Jul 19 11:58:40 UTC 2012 - mmarek@suse.cz
+
+- Do not copy firmware files of all kernel packages installed
+  (bnc#769627).
+
+-------------------------------------------------------------------
+Thu Jul 19 09:08:26 UTC 2012 - dmzhang@suse.com
+
+- boot-devfunctions.sh: Call vgchange with --partial --sysinit
+  (bnc#731317).
+
+-------------------------------------------------------------------
+Wed Jul 18 14:23:18 UTC 2012 - mmarek@suse.cz
+
+- Add xhci-hcd to the initrd (bnc#755113).
+
+-------------------------------------------------------------------
+Wed Jul  4 14:43:05 UTC 2012 - werner@suse.de
+
+- Fix boot clock scriptlet by testing /etc/adjtime before
+  /etc/sysconfig/clock to make sure that warpclock is executed
+  if CMOS clock is in local time
+
+-------------------------------------------------------------------
+Tue Jun 12 15:28:45 UTC 2012 - coolo@suse.com
+
+- mount /usr without chrooting into root fs first, /usr carries
+  important binaries by now (bnc#752796)
+
+-------------------------------------------------------------------
+Tue May 29 07:38:50 UTC 2012 - werner@suse.de
+
+- Fix clock scriptlet by adding `then'
+
+-------------------------------------------------------------------
+Wed May 23 12:48:47 UTC 2012 - werner@suse.de
+
+- Make warpclock working with upstream systemd HW clock management
+
+-------------------------------------------------------------------
+Fri May 11 11:04:06 UTC 2012 - mmarek@suse.cz
+
+- setup-network.sh: Fix handling of bridge interfaces (bnc#759623)
+
+-------------------------------------------------------------------
+Fri May  4 13:57:48 UTC 2012 - mmarek@suse.cz
+
+- Recreate the initrd for all installed kernels after updating
+  the mkinitrd package (bnc#755924).
+
+-------------------------------------------------------------------
+Thu May  3 11:59:35 UTC 2012 - mmarek@suse.cz
+
+- Avoid accidental tilde expansion when parsing parameters
+  (bnc#760364).
+
+-------------------------------------------------------------------
+Mon Apr 30 19:39:01 UTC 2012 - jeffm@suse.com
+
+- Add Logitech Unifying devices to initrd (bnc#741451).
+
+-------------------------------------------------------------------
+Mon Apr 30 13:06:38 UTC 2012 - rschweikert@suse.com
+
+- support cp, mount, umount, and dmesg in usr tree
+
+-------------------------------------------------------------------
+Tue Apr 17 22:58:25 UTC 2012 - jeffm@suse.com
+
+- Change firmware search path to /usr/lib/firmware -- udev as of 182
+  doesn't look in /lib/firmware (bnc#757655).
+
+-------------------------------------------------------------------
+Wed Mar 28 20:35:35 UTC 2012 - rschweikert@suse.com
+
+- add patches mkinitrd_cpbin_follow_link.patch and
+  mkinitrd_simplify_netsetup.patch; pull requests 6 & 7 in gitorious
+  - setup-prepare: cp_bin() needs to follow links
+  - setup-network: move loop independent operation outside the loop
+
+-------------------------------------------------------------------
+Thu Mar 22 10:29:58 UTC 2012 - seife+obs@b1-systems.com
+
+- boot-udev: add blkid dependency
+
+-------------------------------------------------------------------
+Tue Mar 20 13:19:12 UTC 2012 - mmarek@suse.cz
+
+- boot-udev: Trigger add action for subsystems (bnc#750668).
+
+-------------------------------------------------------------------
+Thu Mar 15 15:12:25 UTC 2012 - mmarek@suse.cz
+
+- setup-network: Print warnings to stderr.
+
+-------------------------------------------------------------------
+Wed Mar 14 13:32:58 UTC 2012 - rubin@raaftech.nl
+
+- Copy ifcfg settings regardless of nettype value (bnc#724775).
+
+-------------------------------------------------------------------
+Thu Feb 23 15:31:57 UTC 2012 - rjschwei@suse.com
+
+- support binaries in /usr tree.
+
+-------------------------------------------------------------------
+Wed Feb 15 14:58:47 UTC 2012 - mmarek@suse.cz
+
+- Simplify calling of get_kernel_version.
+
+-------------------------------------------------------------------
+Wed Feb 15 13:55:39 UTC 2012 - ms@suse.de
+
+- Add support for ARM uImages.
+
+-------------------------------------------------------------------
+Thu Feb  9 10:57:19 UTC 2012 - lchiquitto@suse.com
+
+- Install /boot/vmlinux for self compiled kernels in the
+  installkernel script (bnc#739822).
+
+-------------------------------------------------------------------
+Wed Feb  1 16:14:25 UTC 2012 - ohering@suse.de
+
+- Include PV drivers even if running on emulated hardware, to
+  be able to boot when the virtualization setup changes (bnc#710035).
+
+-------------------------------------------------------------------
+Wed Feb  1 10:50:46 UTC 2012 - mmarek@suse.cz
+
+- Add support for xz compressed initrd and use it on PPC
+  (bnc#742328).
+
+-------------------------------------------------------------------
+Fri Jan 20 16:18:20 UTC 2012 - mmarek@suse.cz
+
+- Load all scsi_dh_* modules early during boot (bnc#727428).
+
+-------------------------------------------------------------------
+Fri Jan  6 12:53:47 UTC 2012 - mmarek@suse.cz
+
+- setup-network: Properly install awk.
+
+-------------------------------------------------------------------
+Tue Jan  3 14:24:46 UTC 2012 - mmarek@suse.cz
+
+- Fix ibft for virtio devices (bnc#735058).
+
+-------------------------------------------------------------------
+Tue Jan  3 14:20:54 UTC 2012 - mmarek@suse.cz
+
+- boot-ibft: Do not hardcode eth* device names (bnc#728631,
+  bnc#735058#c1).
+
+-------------------------------------------------------------------
+Thu Dec  8 10:56:45 UTC 2011 - cfarrell@suse.com
+
+- license update: GPL-2.0+
+  Use SPDX format (http://www.spdx.org/licenses)
+
+-------------------------------------------------------------------
+Wed Dec  7 21:14:12 UTC 2011 - mmarek@suse.cz
+
+- setup-network: Remember the interface name as a fallback if the
+  mac address does not match (bnc#733375).
+
+-------------------------------------------------------------------
+Mon Nov 28 15:31:26 UTC 2011 - mmarek@suse.cz
+
+- setup-ibft: Do not assume that interface names start with 'eth'
+  (bnc#728631).
+
+-------------------------------------------------------------------
+Tue Nov 22 12:29:02 UTC 2011 - mmarek@suse.cz
+
+- setup-modules: Allow aliases as dependencies in the SUSE INITRD
+  REQUIRES syntax (bnc#730617).
+
+-------------------------------------------------------------------
+Tue Nov 22 11:02:18 UTC 2011 - mmarek@suse.cz
+
+- setup-modules: Fix adding more than one additional dependency to
+  modules (bnc#730617).
+
+-------------------------------------------------------------------
+Mon Nov  7 12:54:16 UTC 2011 - mmarek@suse.cz
+
+- Revert the NO_KMS_IN_INITRD -> KMS_IN_INITRD rename, it breaks
+  other scripts for no good reason (bnc#619218#c12).
+
+-------------------------------------------------------------------
+Tue Oct 18 08:45:11 UTC 2011 - mmarek@suse.cz
+
+- Do not create /dev/shm/initrd_exports.sh, it was only needed by
+  upstart (bnc#724494).
+
+-------------------------------------------------------------------
+Fri Oct 14 13:01:41 UTC 2011 - mmarek@suse.cz
+
+- purge-kernels: Only remove kernel-source and kernel-devel, if
+  there is no runtime package left (bnc#721481, bnc#723647).
+
+-------------------------------------------------------------------
+Tue Oct 11 13:50:35 UTC 2011 - mmarek@suse.com
+
+- Include thermal, processor and fan acpi modules on x86 and ia64
+  (bnc#716785#c11).
+
+-------------------------------------------------------------------
+Fri Oct  7 08:50:45 UTC 2011 - mmarek@suse.cz
+
+- Fix the module dependency resolver to include dependencies of
+  sd_mod (bnc#722484).
+
+-------------------------------------------------------------------
+Fri Sep 30 15:38:07 UTC 2011 - uli@suse.com
+
+- cross-build fix: use %__cc macro
+
+-------------------------------------------------------------------
+Thu Sep 22 12:18:39 UTC 2011 - mmarek@suse.cz
+
+- Include sd_mod if scsi_mod is used (bnc#714924).
+
+-------------------------------------------------------------------
+Wed Sep 21 08:19:47 UTC 2011 - mmarek@suse.cz
+
+- setup-network: 77-network.rules has moved to /lib/udev/rules.d/
+  (bnc#707855).
+
+-------------------------------------------------------------------
+Wed Sep 21 07:27:32 UTC 2011 - eich@suse.de
+
+- netconsole: Make the setup more robust and add error detection.
+
+-------------------------------------------------------------------
+Tue Sep 20 21:20:09 UTC 2011 - mmarek@suse.com
+
+- Add /etc/{protocols,netconfig,services} to the initrd
+  (bnc#714945).
+
+-------------------------------------------------------------------
+Tue Sep 20 08:41:54 UTC 2011 - mmarek@suse.cz
+
+- purge-kernels: Also handle kernel-source packages (bnc#718753).
+
+-------------------------------------------------------------------
+Tue Aug 30 12:12:03 UTC 2011 - coolo@suse.de
+
+- Fix mkinitrd -d <rootdev> (bnc#714650).
+
+-------------------------------------------------------------------
+Sat Aug 20 12:26:20 UTC 2011 - mmarek@suse.cz
+
+- Fix mkinitrd -D default (bnc#713103).
+
+-------------------------------------------------------------------
+Tue Aug  9 14:51:37 UTC 2011 - hare@suse.de
+
+- Add the 'root' argument in the call to check_for_device()
+  (bnc#699870).
+
+-------------------------------------------------------------------
+Thu Aug  4 10:36:54 CEST 2011 - fcrozat@suse.com
+
+- Output fsck result on root partition to /run/initramfs/root-fsck,
+  to prevent systemd to do it again.
+
+-------------------------------------------------------------------
+Wed Aug  3 13:35:19 UTC 2011 - mmarek@suse.cz
+
+- Mount the /usr filesystem in the initrd
+  It has still some rough edges, like support for journal device or
+  booting from nfs, but simple cases should work.
+
+-------------------------------------------------------------------
+Tue Aug  2 12:12:04 UTC 2011 - mmarek@novell.com
+
+- Run cpio with the --quiet option.
+
+-------------------------------------------------------------------
+Mon Aug  1 15:09:15 UTC 2011 - mmarek@suse.cz
+
+- Only copy /usr/bin/on_ac_power if it exists (bnc#708326).
+
+-------------------------------------------------------------------
+Fri Jul 29 13:46:54 UTC 2011 - mmarek@suse.cz
+
+- Add the dmesg utility for easier debugging.
+
+-------------------------------------------------------------------
+Wed Jul 20 08:32:49 UTC 2011 - mmarek@novell.com
+
+- Fix typo in boot-mount.sh (bnc#704867#c6).
+
+-------------------------------------------------------------------
+Mon Jul 18 11:16:42 UTC 2011 - mmarek@novell.com
+
+- purge-kernels: Fix matching of -rc kernels.
+
+-------------------------------------------------------------------
+Thu Jun 30 21:07:11 UTC 2011 - mmarek@novell.com
+
+- Allow scripts to set multiple interfaces in the $interface
+  variable (fate#311345).
+
+-------------------------------------------------------------------
+Thu Jun 30 09:47:17 UTC 2011 - mmarek@novell.com
+
+- Fix typo in resolve_device() (bnc#698946).
+
+-------------------------------------------------------------------
+Wed Jun 22 15:02:26 UTC 2011 - mmarek@novell.com
+
+- dcbd was replaced with lldpad.
+
+-------------------------------------------------------------------
+Wed Jun 22 14:12:55 UTC 2011 - mmarek@novell.com
+
+- Add support for configuring multiple network interfaces
+  (fate#311345).
+
+-------------------------------------------------------------------
+Tue Jun 21 09:11:06 UTC 2011 - mmarek@novell.com
+
+- purge-kernels: Change the variable to multiversion.kernels to
+  match the syntax of other zypp variables.
+
+-------------------------------------------------------------------
+Mon Jun 20 08:58:35 UTC 2011 - mmarek@novell.com
+
+- purge-kernels: Change the multiversion_kernels variable to a 
+  comma separated list, update help.
+
+-------------------------------------------------------------------
+Sun Jun 19 13:25:10 UTC 2011 - mmarek@novell.com
+
+- Add purge-kernels script to automatically delete old kernel packages
+  on boot, based on configuration in /etc/zypp/zypp.conf, variable
+  multiversion_kernels (fate#312018).
+
+-------------------------------------------------------------------
+Thu Jun 16 13:31:38 UTC 2011 - mmarek@novell.com
+
+- Call udevadm trigger --action=add, because the default is "change"
+  in newer udev.
+
+-------------------------------------------------------------------
+Tue Jun 14 13:56:11 UTC 2011 - mmarek@novell.com
+
+- Add a note to the spec file that the package is maintained in git.
+
+-------------------------------------------------------------------
+Tue Jun 14 13:30:07 UTC 2011 - mmarek@novell.com
+
+- boot-start: Mount /run without noexec to match systemd.
+
+-------------------------------------------------------------------
+Thu Jun  2 11:35:12 UTC 2011 - mmarek@novell.com
+
+- Map /dev/fio* to the iomemory-vsl driver (bnc#695620).
+
+-------------------------------------------------------------------
+Mon May  9 16:55:56 CEST 2011 - ro@suse.de
+
+- move sysconfig/kernel related parts to this package 
+
+-------------------------------------------------------------------
+Wed May  4 14:42:49 UTC 2011 - mmarek@novell.com
+
+- Do not hardcode the xenblk driver, use the xen:vbd alias instead
+  (bnc#558278).
+
+-------------------------------------------------------------------
+Wed May  4 14:32:00 UTC 2011 - mmarek@novell.com
+
+- Fix typo in boot-devfunctions.sh (bnc#642011).
+
+-------------------------------------------------------------------
+Tue Apr 26 19:46:08 UTC 2011 - johannesobermayr@gmx.de
+
+- Move lsinitrd to /bin (feature#312272).
+
+-------------------------------------------------------------------
+Tue Mar 29 21:37:28 UTC 2011 - mmarek@novell.com
+
+- Change from /dev/.run to /run (bnc#678270#c2).
+
+-------------------------------------------------------------------
+Mon Mar 14 21:38:37 UTC 2011 - mmarek@novell.com
+
+- Create /dev/.run tmpfs mountpoint (bnc#678270).
+- version 2.7.0.
+
+-------------------------------------------------------------------
+Fri Dec 17 14:40:56 UTC 2010 - mmarek@novell.com
+
+- Survive dangling symlinks in /lib/mkinitrd/setup.
+
+-------------------------------------------------------------------
+Fri Dec 17 14:20:15 UTC 2010 - mmarek@novell.com
+
+- Really check mtime when determining whether to run mkinitrd_setup.
+
+-------------------------------------------------------------------
+Wed Nov 24 15:55:31 CET 2010 - pth@suse.de
+
+- Fix for new coreutils (bnc#654364).
+
+-------------------------------------------------------------------
+Thu Sep  2 13:22:46 CEST 2010 - mmarek@suse.cz
+
+- Do not use the chroot binary from the target system (bnc#635856).
+
+-------------------------------------------------------------------
+Wed Aug 25 15:05:03 CEST 2010 - mmarek@suse.cz
+
+- setup-modules.sh: Cleanup.
+
+-------------------------------------------------------------------
+Tue Jul 20 22:32:08 CEST 2010 - mmarek@suse.cz
+
+- setup-block.sh: Map /dev/VxDMP* to vxdmp.ko (bnc#623776)
+
+-------------------------------------------------------------------
+Fri Jul  9 15:09:56 CEST 2010 - kasievers@novell.com
+
+- handle /sbin/init being a symlink (bnc#621147).
+
+-------------------------------------------------------------------
+Thu Jun 24 06:14:52 CEST 2010 - mmarek@suse.cz
+
+- Copy modules.builtin to the initrd (bnc#541519).
+
+-------------------------------------------------------------------
+Mon Jun 21 14:25:16 CEST 2010 - mmarek@suse.cz
+
+- Bump version to 2.6.0
+
+-------------------------------------------------------------------
+Fri Jun 11 16:25:26 CEST 2010 - mmarek@suse.cz
+
+- Report non-zero exit code before exiting (bnc#611696).
+
+-------------------------------------------------------------------
+Mon May 31 13:33:02 CEST 2010 - eich@novell.com
+
+- setup-kmp.sh: Fix for nouveau (bnc#595570).
+
+-------------------------------------------------------------------
+Mon May 10 13:20:45 CEST 2010 - mmarek@suse.cz
+
+- setup-storage.sh: Fix beautify_blockdev() (bnc#604150).
+
+-------------------------------------------------------------------
+Wed May  5 14:04:52 CEST 2010 - mmarek@suse.cz
+
+- boot-start.sh: Parse /proc/cmdline more robustly (bnc#598063#c3).
+
+-------------------------------------------------------------------
+Wed Apr 21 10:38:18 CEST 2010 - thomas@novell.com
+
+- boot-boot.sh: Load selinux only if selinux=1 and enforcing=[0|1]
+  is given on the command line (bnc#598075)
+
+-------------------------------------------------------------------
+Fri Apr 16 13:20:21 UTC 2010 - mmarek@novell.com
+
+- boot-start: Support double-quoted strings in /proc/cmdline
+  (bnc#551967).
+
+-------------------------------------------------------------------
+Fri Apr 16 12:07:20 UTC 2010 - mmarek@novell.com
+
+- Clean up load_modules().
+
+-------------------------------------------------------------------
+Fri Apr 16 11:30:39 UTC 2010 - mmarek@novell.com
+
+- Load KMS modules after udev has started (bnc#596268).
+
+-------------------------------------------------------------------
+Tue Apr 13 14:19:45 CEST 2010 - mmarek@suse.cz
+
+- setup-prepare: Fix feature check (bnc#596086).
+
+-------------------------------------------------------------------
+Tue Apr 13 13:16:28 CEST 2010 - mmarek@suse.cz
+
+- setup-ibft: Include the NIC driver (bnc#596076).
+
+-------------------------------------------------------------------
+Tue Apr 13 08:56:06 CEST 2010 - hare@suse.de
+
+- Only set nettype to 'dhcp' if a valid DHCP address was found
+  (bnc#576601)
+
+-------------------------------------------------------------------
+Fri Apr  9 15:50:40 CEST 2010 - mmarek@suse.cz
+
+- Do not call update-bootloader if not available (bnc#595071).
+
+-------------------------------------------------------------------
+Wed Apr  7 14:18:30 CEST 2010 - thomas@novell.com
+
+- added call to load_policy to load the SELinux policy during
+  the boot process (bnc#594041).
+
+-------------------------------------------------------------------
+Fri Mar 26 15:25:22 CET 2010 - mmarek@suse.cz
+
+- setup-storage: Do not assume that anything that contains a colon
+  is nfs (bnc#590135).
+
+-------------------------------------------------------------------
+Fri Mar 26 14:34:47 CET 2010 - mmarek@suse.cz
+
+- setup-start: include /etc/sysconfig/kernel early enough
+  (bnc#591398, bnc#591400).
+
+-------------------------------------------------------------------
+Thu Mar 25 14:35:24 CET 2010 - mmarek@suse.cz
+
+- setup-block: catch "(null)" in /sys/class/scsi_host/*/proc_name
+  (bnc#590918).
+
+-------------------------------------------------------------------
+Wed Mar 17 13:18:03 CET 2010 - mmarek@suse.cz
+
+- setup-sharedlibs.sh: Do not run ldd on scripts (bnc#588609).
+
+-------------------------------------------------------------------
+Mon Mar 15 13:59:11 CET 2010 - mmarek@suse.cz
+
+- scripts/boot-start.sh: avoid using eval statements (bnc#525668).
+
+-------------------------------------------------------------------
+Fri Mar 12 12:07:11 CET 2010 - coolo@suse.de
+
+- support upstart in providing a file with the initrd exports.
+
+-------------------------------------------------------------------
+Thu Mar 11 16:08:55 CET 2010 - mmarek@suse.cz
+
+- setup-block: map /dev/mmc* to the mmc_block driver (bnc#480808).
+
+-------------------------------------------------------------------
+Wed Mar 10 16:00:03 CET 2010 - mmarek@suse.cz
+
+- Parse iBFT settings correctly (bnc#541892).
+
+-------------------------------------------------------------------
+Wed Mar 10 15:54:34 CET 2010 - mmarek@suse.cz
+
+- setup-block: Add warning for loop devices (bnc#523749).
+
+-------------------------------------------------------------------
+Wed Mar 10 15:53:27 CET 2010 - mmarek@suse.cz
+
+- setup-storage: Ignore error messages from dmsetup.
+
+-------------------------------------------------------------------
+Wed Mar 10 12:38:37 CET 2010 - mmarek@suse.cz
+
+- Use udevsettle before killing udevd (bnc#543612).
+
+-------------------------------------------------------------------
+Wed Mar  3 21:45:06 CET 2010 - eich@novell.com
+
+- scripts/setup-kms.sh: Fix for shopt -s nocasematch (bnc#566624).
+
+-------------------------------------------------------------------
+Wed Mar  3 15:10:42 CET 2010 - mmarek@suse.cz
+
+- Require sysvinit on older dists
+
+-------------------------------------------------------------------
+Wed Mar  3 13:23:31 UTC 2010 - coolo@novell.com
+
+- do not require sysvinit but the tools and sbin_init
+
+-------------------------------------------------------------------
+Fri Feb 19 10:30:01 CET 2010 - mmarek@suse.cz
+
+- scripts/boot-network.sh: really fix net_delay handling
+  (bnc#575816).
+
+-------------------------------------------------------------------
+Wed Feb 17 13:33:55 CET 2010 - mmarek@suse.cz
+
+- scripts/boot-mount.sh: Fix fsck progressbar (bnc#564325).
+
+-------------------------------------------------------------------
+Wed Feb 17 12:13:10 CET 2010 - mmarek@suse.cz
+
+- Update the URL in the specfile.
+
+-------------------------------------------------------------------
+Wed Feb 10 12:22:38 CET 2010 - eich@novell.com
+
+- Fix bogus wildchar substitution in pci device list (bnc#566624) et.al.
+
+-------------------------------------------------------------------
+Fri Feb  5 16:22:29 CET 2010 - mmarek@suse.cz
+
+- scripts/setup-network.sh: change [ "$foo" ] to [ -n "$foo" ]
+  (bnc#471943).
+
+-------------------------------------------------------------------
+Fri Feb  5 15:38:53 CET 2010 - eich@novell.com
+
+- change handling of upper<>lower case matching for SLE-11.
+
+-------------------------------------------------------------------
+Fri Feb  5 15:27:15 CET 2010 - mmarek@suse.cz
+
+- scripts/boot-start.sh: fallback to tmpfs for kerneles without
+  devtmpfs.
+
+-------------------------------------------------------------------
+Thu Feb  4 22:53:27 CET 2010 - kasievers@novell.com
+
+- Use devtmpfs and mount /dev/shm as its own tmpfs mount
+  (bnc#561994).
+
+-------------------------------------------------------------------
+Thu Feb  4 22:27:55 CET 2010 - mmarek@suse.cz
+
+- Handle low space below /dev/shm better (bnc#553629).
+
+-------------------------------------------------------------------
+Thu Feb  4 16:15:45 CET 2010 - mmarek@suse.cz
+
+- Avoid using process substitution in setup scripts (bnc#575819).
+
+-------------------------------------------------------------------
+Thu Jan 28 13:01:16 CET 2010 - mmarek@suse.cz
+
+- scripts/setup-kms.sh: properly restore $IFS (bnc#574683).
+
+-------------------------------------------------------------------
+Wed Jan 27 14:59:02 CET 2010 - mmarek@suse.cz
+
+- scripts/setup-modules.sh: fix for module options in /proc/cmdline
+  (bnc#567868, bnc#574261).
+
+-------------------------------------------------------------------
+Tue Jan 26 16:58:03 CET 2010 - eich@freedesktop.org
+
+- Bail out of kms setup if no pci devices can be found (bnc#573454).
+
+-------------------------------------------------------------------
+Mon Jan 25 16:03:04 CET 2010 - eich@freedesktop.org
+
+- Add support for KMS. (bnc#560419)
+
+-------------------------------------------------------------------
+Tue Jan 19 11:34:09 CET 2010 - mmarek@suse.cz
+
+- scripts/setup-modules.sh: remove the check_builtin_module() hack,
+  recent kernel and m-i-t handle it properly.
+
+-------------------------------------------------------------------
+Fri Jan 15 17:22:31 CET 2010 - lmuelle@suse.de
+
+- Use ID_FS_LABEL_ENC instead of ID_FS_LABEL_SAFE in scripts/boot-storage.sh;
+  (bnc#483136).
+
+-------------------------------------------------------------------
+Fri Jan 15 17:14:30 CET 2010 - mmarek@suse.cz
+
+- scripts/boot-block.sh: mdmon fixes.
+
+-------------------------------------------------------------------
+Thu Jan 14 15:58:13 CET 2010 - mmarek@suse.cz
+
+- Set shopt -s nullglob so that for-loops behave as expected.
+
+-------------------------------------------------------------------
+Tue Dec 15 14:32:24 CET 2009 - mvancura@suse.cz
+
+- don't run fsck if on batteries (bnc#521419)
+
+-------------------------------------------------------------------
+Mon Dec 14 16:10:50 CET 2009 - mvancura@suse.cz
+
+- set number of inodes in /dev to unlimited (bnc#529839)
+
+-------------------------------------------------------------------
+Mon Nov 23 15:13:01 CET 2009 - mvancura@suse.cz
+
+- store the git repo URL in the package metadata
+
+-------------------------------------------------------------------
+Wed Nov 11 14:11:27 CET 2009 - mvancura@suse.cz
+
+- fix the name of multipath feature in doc, add a check of fetures
+  list on input (sysconfig file or cmdline options) (bnc#551339)
+
+-------------------------------------------------------------------
+Wed Nov 11 13:14:08 CET 2009 - mcihar@suse.cz
+
+- add a bridge to support fcoe and dcbd (fate#307444)
+
+-------------------------------------------------------------------
+Fri Oct 30 14:39:03 CET 2009 - mmarek@suse.cz
+
+- restart mdmon before switching to the new root (fate#306823).
+
+-------------------------------------------------------------------
+Wed Oct 28 00:35:44 CET 2009 - ro@suse.de
+
+- remove hack for qlogic and aix and use modinfo -F firmware to
+  find out and copy if a module requires firmware files 
+
+-------------------------------------------------------------------
+Tue Oct 27 16:11:46 CEST 2009 - mvancura@suse.cz
+
+- Fix support for UUID= and LABEL= in /etc/fstab (bnc#702361).
+
+-------------------------------------------------------------------
+Thu Oct 22 16:54:45 CEST 2009 - ro@suse.de
+
+- add any required firmware to the initrd (bnc#564857)
+
+-------------------------------------------------------------------
+Thu Oct 22 16:13:21 CEST 2009 - mmarek@suse.cz
+
+- Add support for compressed modules (bnc#458525)
+
+-------------------------------------------------------------------
+Thu Oct 22 14:34:46 CEST 2009 - mvancura@suse.cz
+
+- scripts/setup-blockpartition.sh: fix sed regexp converting a
+  partition device name to the disk name (bnc#531663)
+
+-------------------------------------------------------------------
+Fri Oct 16 11:46:11 UTC 2009 - aj@suse.de
+
+- Fix scripts/boot-remount.sh syntax.
+
+-------------------------------------------------------------------
+Fri Oct 16 11:41:02 UTC 2009 - aj@suse.de
+
+- Be silent if /etc/scsi_id.config does not exist (bnc#544298).
+
+-------------------------------------------------------------------
+Tue Oct 13 15:12:54 CEST 2009 - mvancura@suse.cz
+
+- report the right exit_codeif update-bootloader was called
+  (bnc#531252)
+
+-------------------------------------------------------------------
+Tue Oct 13 14:12:54 CEST 2009 - mvancura@suse.cz
+
+- scripts/boot-network.sh: add "net_delay" kernel cmdline option
+  for kdump purposes (bnc#471943)
+
+-------------------------------------------------------------------
+Tue Oct 13 09:12:54 CEST 2009 - mvancura@suse.cz
+
+- In case running kernel and kernel initrd is being build for are
+  different modinfo got wrong information about modules.
+  (bnc#494364)
+
+-------------------------------------------------------------------
+Thu Sep 17 13:31:44 CEST 2009 - mvancura@suse.cz
+
+- Enable quota mount option for root partition (bnc#532701 and
+  related to bnc#430975)
+
+-------------------------------------------------------------------
+Mon Sep  7 12:49:01 CEST 2009 - werner@suse.de
+
+- Use bash builtin touch
+
+-------------------------------------------------------------------
+Mon Aug 31 14:54:40 CEST 2009 - mvancura@suse.cz
+
+- note that we adjusted clock (bnc#534816)
+
+-------------------------------------------------------------------
+Fri Aug 21 16:26:00 CEST 2009 - mmarek@suse.cz
+
+- sbin/module_upgrade: update to new modprobe config layout
+  (bnc#532069).
+
+-------------------------------------------------------------------
+Tue Aug 11 11:58:25 CEST 2009 - mmarek@suse.cz
+
+- do not copy module parameters from /proc/cmdline, modprobe does
+  it itself.
+
+-------------------------------------------------------------------
+Tue Aug 11 11:55:15 CEST 2009 - mmarek@suse.cz
+
+- rename the temporary file /etc/modprobe.d/options to options.conf
+  as required by new module-init-tools.
+
+-------------------------------------------------------------------
+Wed Jul 15 15:34:38 CEST 2009 - mmarek@suse.cz
+
+- do not warn about built-in modules
+- prefix modprobe errors with "modprobe:" (less scary than "FATAL:")
+
+-------------------------------------------------------------------
+Thu Jul  2 08:53:25 CEST 2009 - hare@suse.de
+
+- Update version to 2.5.10
+
+-------------------------------------------------------------------
+Wed Jun 24 18:47:12 CEST 2009 - thomas@novell.com
+
+- only copy *.sh files to scripts directory 
+
+-------------------------------------------------------------------
+Wed Jun 24 16:23:12 CEST 2009 - thomas@novell.com
+
+- only include scripts with .sh extension in rpm file to fix
+  build failure 
+
+-------------------------------------------------------------------
+Tue Jun 23 10:59:10 CEST 2009 - mvancura@suse.cz
+
+- new udev will need /sbin/blkid in initramfs (bnc#513994)
+
+-------------------------------------------------------------------
+Tue Jun 23 07:38:22 CEST 2009 - thomas@novell.com
+
+- mounting /root/proc for SELinux (bnc#457984, bnc#467342) 
+
+-------------------------------------------------------------------
+Mon May 25 12:15:08 CEST 2009 - ro@suse.de
+
+- silence warning about rightfully non existing modprobe.conf 
+
+-------------------------------------------------------------------
+Tue May 19 21:37:10 CEST 2009 - jeffm@suse.de
+
+- Added firmware rules to udev (bnc#494199)
+
+-------------------------------------------------------------------
+Mon May  4 17:53:55 CEST 2009 - werner@suse.de
+
+- Do not include binaries for bash builtins
+
+-------------------------------------------------------------------
+Thu Apr 30 10:00:34 CEST 2009 - hare@suse.de
+
+- Using ifup for network initialisation (bnc#487723)
+
+-------------------------------------------------------------------
+Wed Apr 29 17:41:38 CEST 2009 - werner@suse.de
+
+- Minor changes
+
+-------------------------------------------------------------------
+Tue Apr 28 16:10:31 CEST 2009 - werner@suse.de
+
+- sed is powerfull, use it instead using several pipes
+- use usleep for waiting on events
+- use the settimeofday feature to warp the system clock for
+  systems which use the localtime in the UTC (bnc#550697)
+- add scripts from aaa_base for loading rtc module and warp
+  the clock for systems with local time in RTC (bnc#550697)
+
+-------------------------------------------------------------------
+Mon Feb  9 09:56:22 CET 2009 - bwalle@suse.de
+
+- Implement temporary directory selection exactly as specified in
+  the manual page.
+- Update version to 2.5.9.
+
+-------------------------------------------------------------------
+Fri Feb  6 15:13:31 CET 2009 - bwalle@suse.de
+
+- Fix /sbin/mkinitrd -h as user.
+- Honor TMPDIR environment.
+- Remove -t parameter.
+- Update version to 2.5.8.
+
+-------------------------------------------------------------------
+Thu Feb  5 21:07:57 CET 2009 - bwalle@suse.de
+
+- Require libxslt in spec file.
+- Update version to 2.5.7.
+
+-------------------------------------------------------------------
+Thu Jan 29 16:41:15 CET 2009 - bwalle@suse.de
+
+- Don't use the 'ip' from environment (bnc #450680).
+- Update version to 2.5.6.
+
+-------------------------------------------------------------------
+Fri Jan 23 11:31:02 CET 2009 - bwalle@suse.de
+
+- Fix compiled-in module detection, mostly for PPC (bnc #449123).
+- Update version to 2.5.5.
+
+-------------------------------------------------------------------
+Thu Jan 22 16:31:18 CET 2009 - bwalle@suse.de
+
+- Resolve hostnames in /etc/hosts (bnc #468090).
+- Update version to 2.5.4.
+
+-------------------------------------------------------------------
+Wed Jan 21 20:33:11 CET 2009 - bwalle@suse.de
+
+- Include libunwind on IA64 (bnc #459218).
+- Update version to 2.5.3.
+
+-------------------------------------------------------------------
+Tue Jan 20 19:24:07 CET 2009 - bwalle@suse.de
+
+- Match for 'vmlinuz' on i386/x86_64 first.
+- Update version to 2.5.2.
+
+-------------------------------------------------------------------
+Tue Jan 20 15:30:35 CET 2009 - bwalle@suse.de
+
+- Fix symlink detection again (bnc #467531).
+- Update version to 2.5.1.
+
+-------------------------------------------------------------------
+Mon Jan 19 17:30:12 CET 2009 - bwalle@suse.de
+
+- Use the mount options of the root file system from /etc/fstab
+  when building the initrd and save it in the initrd image
+  (bnc #449369).
+
+-------------------------------------------------------------------
+Wed Jan 14 16:49:55 CET 2009 - bwalle@suse.de
+
+- Fix symlink detection (bnc #431714).
+- Update version to 2.5.0.
+
+-------------------------------------------------------------------
+Tue Jan 13 14:08:33 CET 2009 - bwalle@suse.de
+
+- Copy the system resolv.conf for static IP configurations
+  to make name resolution work in the kdump case when static
+  IPs are used (bnc #459065).
+
+-------------------------------------------------------------------
+Mon Jan 12 16:56:19 CET 2009 - bwalle@suse.de
+
+- Implement -c option (show configuration) in lsinitrd(8).
+
+-------------------------------------------------------------------
+Mon Jan 12 14:11:34 CET 2009 - bwalle@suse.de
+
+- Add support for network bonding (bnc #460720).
+
+-------------------------------------------------------------------
+Mon Jan 12 14:08:52 CET 2009 - bwalle@suse.de
+
+- Explicitely require sd_mod when all libata drivers are included.
+
+-------------------------------------------------------------------
+Thu Jan 08 18:16:29 CET 2009 - bwalle@suse.de
+
+- Fix handling of minor device numbers greater than 255
+  (bnc #447968, bnc#471815, bnc#634053).
+
+-------------------------------------------------------------------
+Thu Jan 08 11:07:14 CET 2009 - bwalle@suse.de
+
+- Implement dead symlink detection (bnc #431714)
+
+-------------------------------------------------------------------
+Wed Jan 07 18:24:30 CET 2009 - bwalle@suse.de
+
+- Fix libata detection: Now by default all libata drivers are
+  included if a disk is detected as libata. (That was already
+  implemented, but didn't work.)
+
+-------------------------------------------------------------------
+Wed Jan 07 13:34:15 CET 2009 - bwalle@suse.de
+
+- Mount /root/proc (/proc of the perspective of the system which is
+  booted) in initrd to make SELinux happy (bnc #457984).
+
+-------------------------------------------------------------------
+Tue Dec 16 10:15:02 CET 2008 - bwalle@suse.de
+
+- Revert mounting of /proc in initrd (bnc #457984).
+
+-------------------------------------------------------------------
+Sun Dec 14 18:24:00 CET 2008 - bwalle@suse.de
+
+- Implement logging (/var/log/YaST2/mkinitrd.log).
+
+-------------------------------------------------------------------
+Wed Dec 10 16:27:55 CET 2008 - bwalle@suse.de
+
+- Don't build initrds for kdump kernels with 'mkinitrd' calls
+  that don't have -k or -i arguments. That affects only special
+  kernel-kdump packages as we currently have on PPC64.
+
+-------------------------------------------------------------------
+Wed Dec 10 16:15:52 CET 2008 - bwalle@suse.de
+
+- Mount /root/proc (/proc of the perspective of the system which is
+  booted) in initrd to make SELinux happy (bnc #457984).
+
+-------------------------------------------------------------------
+Wed Dec 10 10:30:58 CET 2008 - bwalle@suse.de
+
+- Don't load drivers that require firmware to be loaded before
+  udev starts (bnc #457428).
+
+-------------------------------------------------------------------
+Mon Dec 08 17:24:58 CET 2008 - bwalle@suse.de
+
+- Check for specific module if they are compiled in and don't
+  print warning messages if the modules are missing in that case.
+  That affects USB on PPC64. (bnc #449123)
+
+-------------------------------------------------------------------
+Mon Dec 08 16:14:39 CET 2008 - bwalle@suse.de
+
+- Implement program dependencies for modules (bnc #449123).
+
+-------------------------------------------------------------------
+Sat Dec  6 17:21:00 CET 2008 - bwalle@suse.de
+
+- Include virtio_pci module if necessary (bnc #456439).
+
+-------------------------------------------------------------------
+Fri Dec  5 14:51:40 CET 2008 - bwalle@suse.de
+
+- Run mkinitrd_setup in '%posttrans' instead of '%post' to fix
+  danging symlinks after removal of some scripts (bnc #456417).
+
+-------------------------------------------------------------------
+Wed Dec 03 19:57:23 CET 2008 - bwalle@suse.de
+
+- Add 'SUSE INITRD foo REQUIRES bar' comment parsing (bnc #449853).
+- Don't filter out install lines from initrd (bnc #449853).
+
+-------------------------------------------------------------------
+Wed Dec 03 19:56:38 CET 2008 - hare@suse.de
+
+- Copy persistent net rules into the initrd
+- Fixup ip= line to reflect interface changes from the commandline
+  (bnc #442074).
+
+-------------------------------------------------------------------
+Tue Dec 02 17:41:44 CET 2008 - bwalle@suse.de
+
+- Don't evaluate 'install' lines in /etc/modprobe.conf and friends
+  to generate module dependencies. Don't copy over install lines
+  into the initrd. (bnc #449123)
+
+-------------------------------------------------------------------
+Tue Dec 02 15:04:59 CET 2008 - bwalle@suse.de
+
+- Change evaluation of -v option: Now it's really global, not local
+  to the subshell spawned by mkinitrd. Discovered while debugging
+  bnc #450522.
+
+-------------------------------------------------------------------
+Tue Dec 02 14:39:32 CET 2008 - bwalle@suse.de
+
+- Add -B option to prevent update-bootloader --refresh from being
+  executed after the initrd(s) have been generated (bnc #450522).
+
+-------------------------------------------------------------------
+Mon Dec 01 22:12:33 CET 2008 - bwalle@suse.de
+
+- Allow unsupported modules in self-made development kernels
+  (bnc #441327).
+
+-------------------------------------------------------------------
+Sat Nov 29 20:43:18 CET 2008 - bwalle@suse.de
+
+- Document the algorithm how the default DHCP network interface
+  is chosen (bnc #440900).
+- Resolve bridge network devices when auto-detecting the network
+  interfaces (bnc #449765).
+
+-------------------------------------------------------------------
+Fri Nov 28 13:32:08 CET 2008 - bwalle@suse.de
+
+- Don't use optimised versions of shared libraries on POWER
+  (bnc#448725).
+
+-------------------------------------------------------------------
+Tue Nov 25 16:21:37 CET 2008 - hare@suse.de
+
+- Work around mptctl install lines (bnc#448716)
+- Add syntax checker
+
+-------------------------------------------------------------------
+Tue Nov 25 08:54:55 CET 2008 - hare@suse.de
+
+- Fix syntax error in modules script (bnc#448511)
+- Setup network devices correctly (bnc#448395)
+
+-------------------------------------------------------------------
+Mon Nov 24 16:45:34 CET 2008 - hare@suse.de
+
+- Fix syntax error in network script (bnc#448241)
+
+-------------------------------------------------------------------
+Mon Nov 24 12:07:21 CET 2008 - hare@suse.de
+
+- Correctly quote variables (bnc#447966)
+- Remove stderr redirection from modprobe to display the
+  actuall error (bnc#441327)
+
+-------------------------------------------------------------------
+Fri Nov 21 10:51:52 CET 2008 - hare@suse.de
+
+- network: use wildcard match for nettype 'dhcp' (bnc#440192)
+- Update modules script for zfcpdump (bnc#446427)
+- Select correct network interface when 'ip=' is specified
+  on the commandline (bnc#442074)
+- Disable fsck for kdump (bnc#438192)
+
+-------------------------------------------------------------------
+Wed Oct 29 10:53:39 CET 2008 - hare@suse.de
+
+- Include lsinitrd script (bnc#439103)
+
+-------------------------------------------------------------------
+Thu Oct  9 09:12:14 CEST 2008 - agraf@suse.de
+
+- Remove rootfs module check (bnc#432766)
+- Include libata drivers only if libata is used (bnc#433105)
+- Remove warning for non-existing driver directories (bnc#433455)
+- Fix script syntax
+
+-------------------------------------------------------------------
+Mon Sep 29 13:33:46 CEST 2008 - hare@suse.de
+
+- Build ramdisk in /dev/shm to speed up mkinitrd
+
+-------------------------------------------------------------------
+Wed Sep 24 15:29:37 CEST 2008 - hare@suse.de
+
+- Handle cciss devices correctly (bnc#424217)
+- Do not call update-bootloader on error
+
+-------------------------------------------------------------------
+Tue Sep 23 16:24:26 CEST 2008 - hare@suse.de
+
+- Add /bin/uname (required for firmware.sh script)
+  (bnc#427267)
+
+-------------------------------------------------------------------
+Fri Sep 19 10:17:52 CEST 2008 - hare@suse.de
+
+- Detect LVM2 devices during boot correctly (bnc#421379)
+- Include all S/390 block modules, too (bnc#427615)
+
+-------------------------------------------------------------------
+Tue Sep  9 16:00:28 CEST 2008 - hare@suse.de
+
+- Fix dhcp network detection (bnc#415438)
+- parse 'ip route' lines correctly (bnc#414191)
+- Always include all ATA and SCSI drivers
+
+-------------------------------------------------------------------
+Fri Aug  8 16:06:49 CEST 2008 - hare@suse.de
+
+- Fix booting with no 'root=' commandline parameter
+- Implement 'forcefsck' parameter (bnc#379597)
+- Add requirement to 'dhcpcd' (bnc#413713)
+
+-------------------------------------------------------------------
+Thu Jul 31 12:19:00 CEST 2008 - hare@suse.de
+
+- Do not activate network by default (bnc#412649)
+- Reset LVM prior to multipath activation (bnc#407512)
+
+-------------------------------------------------------------------
+Thu Jul 24 13:54:08 CEST 2008 - hare@suse.de
+
+- Don't overwrite interface settings (bnc#410013)
+- Remove calls to 'vol_id'
+- Don't update symbolic link when creating initrd with suffix
+  (bnc#411212)
+- Update manpages
+- Select default interface when '-f network' is given (bnc#411207)
+- Move subsystem scripts to individual rpms.
+- Update version to 2.4
+
+-------------------------------------------------------------------
+Mon Jul 21 09:18:48 CEST 2008 - hare@suse.de
+
+- Look for udev rules in /lib/udev, too.
+- Update version to 2.3
+- Add 'Conflicts' tag for older udev versions.
+
+-------------------------------------------------------------------
+Mon Jul 14 10:45:09 CEST 2008 - hare@suse.de
+
+- Update documentation
+- Remove call to getcfg-interface (bnc#401660)
+- Fixup booting from LVM (bnc#406554)
+
+-------------------------------------------------------------------
+Fri Jul  4 12:15:52 CEST 2008 - hare@suse.de
+
+- Include all modules for Xen kernels (bnc#379727)
+
+-------------------------------------------------------------------
+Thu Jun 26 10:41:18 CEST 2008 - agraf@novell.com
+
+- Escape minus commandline keys (bnc#389672,bnc#403995)
+
+-------------------------------------------------------------------
+Thu Jun 26 08:47:25 CEST 2008 - hare@suse.de
+
+- Revert init= changes; incompatible with 'normal' kernel
+  behaviour
+- Fixup ip= parsing (bnc#398950)
+
+-------------------------------------------------------------------
+Fri Jun  6 13:07:39 CEST 2008 - hare@suse.de
+
+- Parse new DHCP information correctly
+- Fixup DNS hostname resolution (bnc#389672)
+
+-------------------------------------------------------------------
+Wed May 21 14:55:47 CEST 2008 - hare@suse.de
+
+- Fixup DHCP and static IP detection (bnc#390756)
+- Ignore all commandline arguments after init= (bnc#389672)
+
+-------------------------------------------------------------------
+Fri May  2 09:57:57 CEST 2008 - hare@suse.de
+
+- Fixup boot from multipath (bnc#385240)
+- Add 'mkinitrd.config' file to the initrd (bnc#380687)
+- Warn user if non-english keyboard layout was used (bnc#331351)
+
+-------------------------------------------------------------------
+Tue Apr 29 09:42:58 CEST 2008 - hare@suse.de
+
+- Remove obsolete mk_initrd link
+
+-------------------------------------------------------------------
+Mon Apr 28 16:54:07 CEST 2008 - hare@suse.de
+
+- Update symlinks automatically
+- Fixup root on NFS (bnc#383808)
+
+-------------------------------------------------------------------
+Wed Apr 23 16:18:57 CEST 2008 - hare@suse.de
+
+- Clean up build dependencies
+- Replace awk with sed statements
+
+-------------------------------------------------------------------
+Wed Apr  9 15:41:33 CEST 2008 - agraf@suse.de
+
+- Use dynamic cmdline parsing
+- Add CIFS support
+
+-------------------------------------------------------------------
+Tue Apr  1 15:03:02 CEST 2008 - hare@suse.de
+
+- Cleanup save_var statements
+- Match network interface by MAC address
+- Update multipath handling
+- add CIFS support
+- Move device discovery scripts
+- Use wait_for_events function instead of udevsettle
+- Update udev scripts to latest upstream version
+- Bump version number to 2.2
+
+-------------------------------------------------------------------
+Wed Mar  5 15:30:38 CET 2008 - hare@suse.de
+
+- Work on non-modular systems, too (#367269)
+
+-------------------------------------------------------------------
+Wed Feb  6 09:15:02 CET 2008 - agraf@suse.de
+
+- don't resolve non-existing devices, so a wrong resume device
+  option does not result in a broken initrd (#357725)
+
+-------------------------------------------------------------------
+Thu Jan 10 13:13:48 CET 2008 - hare@suse.de
+
+- Rescan for LVM2 when waiting for the root device (#343891)
+- Allow for commandline variables without a value (#347175)
+- Parse 'ro' variable correctly
+- Include the real bash binary (#337386)
+
+-------------------------------------------------------------------
+Fri Nov  9 08:46:21 CET 2007 - hare@suse.de
+
+- Add new udevadm tool to boot-udev.sh
+
+-------------------------------------------------------------------
+Mon Oct 22 14:53:34 CEST 2007 - hare@suse.de
+
+- Rework partition detection
+- Fix booting from SmartArray devices (#334377)
+- Fix booting from dmraid (#334461)
+
+-------------------------------------------------------------------
+Tue Oct 16 13:40:15 CEST 2007 - hare@suse.de
+
+- Fix Xen block device detection (#331948)
+- Fix detection of mylex disks (#329663)
+- Fix typo in LUKS detection (#331655)
+
+-------------------------------------------------------------------
+Wed Sep 19 14:21:14 CEST 2007 - hare@suse.de
+
+- Remove all functions from the environment (#309131)
+- Don't remove the build root before starting %build
+
+-------------------------------------------------------------------
+Wed Sep 19 01:21:01 CEST 2007 - agraf@suse.de
+
+- Include libata modules in the Monster-Initrd
+
+-------------------------------------------------------------------
+Tue Sep 18 03:33:24 CEST 2007 - agraf@suse.de
+
+- Make the initrd less verbose, so people don't misinterpret debug
+  messages as warnings
+- Remove set -a so variables used in the initrd are not exported to
+  the userland (possible security leak)
+
+-------------------------------------------------------------------
+Fri Sep 14 16:04:58 CEST 2007 - hare@suse.de
+
+- Call ldd correctly (#299242)
+- Setup LVM2 over md correctly (#309441)
+
+-------------------------------------------------------------------
+Thu Sep 13 13:32:49 CEST 2007 - agraf@suse.de
+
+- Fix typo caused by the previous change
+
+-------------------------------------------------------------------
+Fri Sep  7 12:51:28 CEST 2007 - hare@suse.de
+
+- Call update-bootloader instead of trying to figure it
+  out ourselves (#299814)
+
+-------------------------------------------------------------------
+Fri Sep  7 12:47:26 CEST 2007 - jjolly@suse.de
+
+- root=LABEL=blubber does not work anymore (#300550)
+
+-------------------------------------------------------------------
+Mon Sep  3 16:08:39 CEST 2007 - seife@suse.de
+
+- add some magic to disable the splash during resume from disk
+
+-------------------------------------------------------------------
+Thu Aug 30 10:05:50 CEST 2007 - hare@suse.de
+
+- Refer to raid456 module instead of the old raid5 (#304693)
+
+-------------------------------------------------------------------
+Thu Aug 23 14:54:06 CEST 2007 - vkleen@suse.de
+
+- Fix dm linear support so booting works
+
+-------------------------------------------------------------------
+Wed Aug 22 19:49:01 CEST 2007 - agraf@suse.de
+
+- Not all SCSI drivers have a proc_name entry in sysfs, so we need
+  a proper fallback (#298726)
+
+-------------------------------------------------------------------
+Mon Aug 20 13:41:35 CEST 2007 - agraf@suse.de
+
+- Include mount.nfs so nfsroot works again (broken due to split in
+  util-linux) (#300096)
+
+-------------------------------------------------------------------
+Fri Aug 10 16:48:21 CEST 2007 - agraf@suse.de
+
+- Add dm linear support (#218122)
+- Split acpi setup to a seperate setup script
+- Make acpi setup backward-compatible (#285807)
+
+-------------------------------------------------------------------
+Fri Aug 10 12:32:40 CEST 2007 - hare@suse.de
+
+- Update DASD support
+- Match to correct minor number for EVMS (#288510)
+
+-------------------------------------------------------------------
+Thu Aug  9 17:15:50 CEST 2007 - hare@suse.de
+
+- Update EVMS detection
+- Fixup majorminor2blockdev for LVM devices
+- Use correct path to vol_id for compability
+
+-------------------------------------------------------------------
+Tue Aug  7 12:51:22 CEST 2007 - hare@suse.de
+
+- Fix root device detection for update (#297999)
+- Umount /dev/pts correctly
+- Detect all devices of a LVM2 volume group
+- Only invoke EVMS detection if we really have an EVMS device
+
+-------------------------------------------------------------------
+Mon Aug  6 10:27:56 CEST 2007 - hare@suse.de
+
+- Add manpage mkinitrd.5
+
+-------------------------------------------------------------------
+Thu Aug  2 14:02:36 CEST 2007 - hare@suse.de
+
+- Detect Xen modules correctly (#290073)
+- Fix booting on dmraid devices
+
+-------------------------------------------------------------------
+Wed Aug  1 18:40:22 CEST 2007 - agraf@suse.de
+
+- Fix fast boot
+- Use the fstab device name if stat shows the same major and minor
+  as the fstab device (fixes vmware boot)
+- Fix case with empty no / entry in /etc/fstab
+- Fix printing of "Root"-line twice
+- Have the fallback root device not get resolved
+- Have the nfs module only take nfs into account
+- Enable fast boot by default (disable using slow_boot=1)
+
+-------------------------------------------------------------------
+Tue Jul 31 15:43:53 CEST 2007 - agraf@suse.de
+
+- Fix dm resolviung to only be recursive in dm module (#295997)
+- Include fast boot option (for less overhead with preping)
+
+-------------------------------------------------------------------
+Mon Jul 30 16:01:55 CEST 2007 - agraf@suse.de
+- Fixed booting on dmraid w/o kpartx (recursive resolution of dm
+  devices)
+- Removed Including: line
+- Resolve root device using stat on /
+
+-------------------------------------------------------------------
+Mon Jul 30 15:20:13 CEST 2007 - hare@suse.de
+
+- Enable all disks in a LVM2 volume group
+
+-------------------------------------------------------------------
+Fri Jul 27 15:20:16 CEST 2007 - hare@suse.de
+
+- Fix detection of I2O devices
+
+-------------------------------------------------------------------
+Fri Jul 27 13:25:19 CEST 2007 - agraf@suse.de
+
+- fix md booting (md_dev should be autodetected by the boot
+  script)
+
+-------------------------------------------------------------------
+Thu Jul 26 16:06:38 CEST 2007 - agraf@suse.de
+
+- Include fallback boot device (#287047)
+- Fixed resolve_device, so it works with devices other than
+  $rootdev
+
+-------------------------------------------------------------------
+Wed Jul 25 11:44:59 CEST 2007 - hare@suse.de
+
+- Do not emit warnings for built-in modules
+
+-------------------------------------------------------------------
+Tue Jul 24 12:05:32 CEST 2007 - hare@suse.de
+
+- Only enable kpartx feature if root is on device-mapper
+- Add vg_root to the list of vgs to activate
+- Add sd_mod correctly (#293045)
+
+-------------------------------------------------------------------
+Sat Jul 21 11:41:23 CEST 2007 - coolo@suse.de
+
+- Hotfix for one-CD installations without dmraid setup installed
+
+-------------------------------------------------------------------
+Tue Jul 17 16:10:43 CEST 2007 - hare@suse.de
+
+- Implemented dynamic script enumeration
+
+-------------------------------------------------------------------
+Mon Jul 16 10:33:43 CEST 2007 - sassmann@suse.de
+
+- PS3 devicename was not handled correctly (/dev/ps3dX)
+
+-------------------------------------------------------------------
+Wed Jun 20 13:04:08 CEST 2007 - agraf@suse.de
+
+- Fixed blogd killing to not use sleep
+- If a script failed, throw out an error message
+
+-------------------------------------------------------------------
+Tue Jun 12 16:03:46 CEST 2007 - hare@suse.de
+
+- Fixup verbose() to not change the return value
+
+-------------------------------------------------------------------
+Mon Jun 11 11:52:02 CEST 2007 - agraf@suse.de
+
+- Cut off module parameters from modprobe --show-depends output (#282665)
+- Seperate program copy module from shared library detection, so
+  programs can get replaced without having their shared libs included
+
+-------------------------------------------------------------------
+Mon Jun  4 13:53:53 CEST 2007 - agraf@suse.de
+
+- Made missing modules a warning. This may happen on custom kernels. (#279516)
+- Added: If a kernel module preceding a minus sign was given, this module is
+  excluded from the initrd
+
+-------------------------------------------------------------------
+Fri Jun  1 15:34:27 CEST 2007 - hare@suse.de
+
+- Handle built-in filesystems correctly (#278981)
+- Fixup handling of xfs (#278192)
+- Update NFS mount handling
+
+-------------------------------------------------------------------
+Wed May 30 16:38:44 CEST 2007 - hare@suse.de
+
+- Simplify shared library detection
+- Revamp module setup
+- Fixup error paths
+- Fix cciss detection
+- Fix typo in lvm2 setup
+- Fix module detection (#279611)
+
+-------------------------------------------------------------------
+Tue May 29 17:33:51 CEST 2007 - agraf@suse.de
+
+- Include optional busybox support (activate with -f busybox)
+  (#276555)
+- Suppress useless warnings in resume features
+
+-------------------------------------------------------------------
+Thu May 24 10:13:40 CEST 2007 - agraf@suse.de
+
+- Resolve persistent device names for non-root-devices
+- Split resume into userspace and kernel resume
+- Proper error handling if anything goes wrong
+
+-------------------------------------------------------------------
+Tue May 22 18:57:30 CEST 2007 - agraf@suse.de
+
+- Fixed sysconfig/kernel support again
+- Made mkinitrd abort more often if anything goes wrong
+- Always set md's start_ro flag to 1
+
+-------------------------------------------------------------------
+Mon May 21 17:21:06 CEST 2007 - agraf@suse.de
+
+- Added a warning if fsck was not found
+- Fixed to load sysconfig/kernel modules
+
+-------------------------------------------------------------------
+Mon May 21 13:27:39 CEST 2007 - agraf@suse.de
+
+- Beautified the initrd boot output
+- Removed unused modules when using IDE / SCSI
+- Minor variable escaping fixes
+
+-------------------------------------------------------------------
+Mon May 21 11:40:58 CEST 2007 - agraf@suse.de
+
+- added missing shebang entries
+
+-------------------------------------------------------------------
+Fri May 11 14:37:48 CEST 2007 - agraf@suse.de
+
+- Modularize mkinitrd (FATE #302106)
+- Partly rewrite to create a slick and clean structure
+  (FATE #302106)
+- Include storage device layering detection to resolve device
+  dependencies (FATE #302106)
+- Uses persistent device names internally (FATE #302106)
+- Add LUKS support (FATE #301182)
+- Add USB support (incl. HID)
+- Add Firewire support
+- Netconsole support (#162494)
+- Add support for a "monster"-initrd which includes all features
+  available
+- Add verbose output switch
+
+-------------------------------------------------------------------
+Fri Mar 23 10:44:35 CET 2007 - hare@suse.de
+
+- Create module path if it doesn't exist (#255816)
+- Do not parse options for filesystem modules (#246524)
+- Support resume from LVM2 (#249460)
+- Support resume from EVMS2 (#246494)
+
+-------------------------------------------------------------------
+Wed Mar 21 11:22:53 CET 2007 - hare@suse.de
+
+- Call evms with -b to omit error messages (#246631)
+- Enable asynchronous target scan again after initrd is finished
+- Detect LVM2 volume group correctly (#256285)
+
+-------------------------------------------------------------------
+Mon Mar 19 08:53:32 CET 2007 - hare@suse.de
+
+- Fixup regex for block_driver (#255384)
+- Login into all iSCSI ports (#248495)
+- Disable asynchronous target scan for FC (#241945)
+
+-------------------------------------------------------------------
+Mon Mar 12 16:54:51 CET 2007 - hare@suse.de
+
+- Do not use /usr/bin/tail for the block_driver function (#244148)
+
+-------------------------------------------------------------------
+Mon Mar 12 11:12:03 CET 2007 - hare@suse.de
+
+- Rewrite EVMS handling to fix initialisation errors (#244148)
+
+-------------------------------------------------------------------
+Mon Mar  5 16:47:04 CET 2007 - hare@suse.de
+
+- Include dasdinfo and new DASD udev rules (#222326, #245342)
+
+-------------------------------------------------------------------
+Fri Feb 23 15:59:12 CET 2007 - hare@suse.de
+
+- Sync with fixes from SLES10 SP1.
+
+-------------------------------------------------------------------
+Mon Feb 12 15:34:18 CET 2007 - uli@suse.de
+
+- worked around what appears to be a shell bug (bug #244554)
+
+-------------------------------------------------------------------
+Wed Jan 31 21:23:08 CET 2007 - olh@suse.de
+
+- fix lib/lib64 detection on ia64/alpha
+
+-------------------------------------------------------------------
+Fri Jan 19 11:19:19 CET 2007 - hare@suse.de
+
+- Obey settings from /etc/sysconfig/bootsplash (#230839)
+
+-------------------------------------------------------------------
+Fri Nov 24 22:12:49 CET 2006 - olh@suse.de
+
+- declare variables as local in udev_discover_root/udev_discover_resume
+
+-------------------------------------------------------------------
+Fri Nov 24 22:07:01 CET 2006 - olh@suse.de
+
+- nfsroot must be passed as root=server:/directory, either via
+  cmdline or fstab. Just *:* as rootdev match string does not mean
+  nfsroot, it will also trigger for /dev/disk/ symlinks
+  update udev_discover_root and the root= parser to look at *:/*
+
+-------------------------------------------------------------------
+Fri Nov 24 21:43:51 CET 2006 - olh@suse.de
+
+- remove real-root-dev usage, it came back with the sles10 merge
+  its a writeonly variable for unused prepare_namespace()
+
+-------------------------------------------------------------------
+Fri Nov 24 21:35:53 CET 2006 - olh@suse.de
+
+- remove the /dev/root case from udev_discover_root again (#215240)
+  udev_check_for_device must be called always. sbp2 and usb-storage
+  have async probing.
+
+-------------------------------------------------------------------
+Thu Nov 23 11:21:19 CET 2006 - hare@suse.de
+
+- Fixup EVMS detection.
+
+-------------------------------------------------------------------
+Thu Nov 16 17:41:10 CET 2006 - olh@suse.de
+
+- use BuildIgnore to reduce build requires
+
+-------------------------------------------------------------------
+Thu Nov 16 14:42:24 CET 2006 - hare@suse.de
+
+- Update iscsi boot support
+
+-------------------------------------------------------------------
+Thu Nov 16 14:23:01 CET 2006 - olh@suse.de
+
+- declare loop variable i as local in mkinitrd_kernel
+  otherwise the global loop variable i used for the list of
+  available kernels/initrds gets overwritten (#221288)
+
+-------------------------------------------------------------------
+Thu Nov 16 08:42:21 CET 2006 - hare@suse.de
+
+- Removed rootmd feature again. Wrong approach
+- Fixed dmraid detection (#220765)
+
+-------------------------------------------------------------------
+Mon Nov 13 10:18:25 CET 2006 - bwalle@suse.de
+
+- added rootmd in feature list (-f), fixes #218167
+
+-------------------------------------------------------------------
+Fri Nov 10 16:19:59 CET 2006 - bwalle@suse.de
+
+- fixed mkinitrd uml hostfs support (#215240)
+
+-------------------------------------------------------------------
+Tue Nov  7 17:33:54 CET 2006 - bwalle@suse.de
+
+- porting changes from SLES 10 branch to HEAD:
+- Add multipath compat rules for udev (#218172)
+- Really fix SCSI device ordering (#213641)
+- Fixup DASD device ordering (#202182)
+- Check return values from lspci (#213400)
+- Properly check for whitespaces in output of 'lvs' (#216117)
+- Include all multipath prio callout programs (#211863)
+- Fixup zfcp device ordering (#213641)
+- Enable md detection when booting from lilo (#211089)
+- Fixup netmask generation for static IP setup.
+- Strip duplicate md devices (#192039)
+- fixed #218116 - mkinitrd broke root=/dev/disk/by-*/* on LVM
+- fixed #218119 - mkinitrd requires a parameter for -P (contrary to help text)
+
+-------------------------------------------------------------------
+Sat Nov  4 09:53:46 CET 2006 - olh@suse.de
+
+- keep local modifications to mkinitrd/ipconfig scripts (#113539)
+
+-------------------------------------------------------------------
+Sat Nov  4 09:42:57 CET 2006 - olh@suse.de
+
+- skip resume of resumedev is empty
+
+-------------------------------------------------------------------
+Thu Nov  2 14:06:45 CET 2006 - trenn@suse.de
+
+- Also allow SSDT[0-9]?.aml files to be placed to initrd root dir
+  to let the BIOS provided ones be overridden
+
+-------------------------------------------------------------------
+Tue Oct 31 18:46:13 CET 2006 - olh@suse.de
+
+- require file for elf detection
+
+-------------------------------------------------------------------
+Tue Oct 31 18:35:34 CET 2006 - olh@suse.de
+
+- use RPM_OPT_FLAGS
+
+-------------------------------------------------------------------
+Tue Oct 31 18:13:07 CET 2006 - olh@suse.de
+
+- reduce build requires
+
+-------------------------------------------------------------------
+Sat Oct 28 13:15:15 CEST 2006 - olh@suse.de
+
+- ldd exits early if ld.so fails on one of the passed binaries
+
+-------------------------------------------------------------------
+Thu Oct 26 00:41:27 CEST 2006 - olh@suse.de
+
+- use ELF type for lib/lib64 decision
+
+-------------------------------------------------------------------
+Thu Oct 26 00:28:45 CEST 2006 - olh@suse.de
+
+- do the chmod 755 in cp_bin to fix suid binaries early
+
+-------------------------------------------------------------------
+Mon Oct 16 16:25:37 CEST 2006 - hare@suse.de
+
+- Escape 'mdadm' to avoid error messages
+- Only use '-C' for fsck if we're on the console (#121946)
+
+-------------------------------------------------------------------
+Mon Oct 16 12:29:27 CEST 2006 - agruen@suse.de
+
+- Make sure to always include the module for the root filesystem
+  if the root filesystem is modularized.
+
+-------------------------------------------------------------------
+Sun Oct 15 14:40:16 CEST 2006 - olh@suse.de
+
+- handle LABEL=/UUID= from fstab correctly with empty /proc/cmdline
+
+-------------------------------------------------------------------
+Tue Oct 10 08:08:33 CEST 2006 - olh@suse.de
+
+- /sys/power/resume is optional
+
+-------------------------------------------------------------------
+Tue Oct 10 07:53:38 CEST 2006 - olh@suse.de
+
+- -M needs an argument, broken by IDE scan changes
+
+-------------------------------------------------------------------
+Thu Oct  5 13:19:41 CEST 2006 - hare@suse.de
+
+- Include all executables from /lib/mkinitrd/bin
+  (FATE 300884)
+
+-------------------------------------------------------------------
+Fri Sep 29 21:59:30 CEST 2006 - aj@suse.de
+
+- Copy libgcc_s into the lib directory and not to /
+
+-------------------------------------------------------------------
+Thu Sep 28 13:38:03 CEST 2006 - hare@suse.de
+
+- Fix detection of LVM devices (208417)
+- Do not include md modules if not required.
+- Don't print annoying 'File descriptor XX left open' messages
+
+-------------------------------------------------------------------
+Tue Sep 26 12:14:22 CEST 2006 - seife@suse.de
+
+- Update userspace suspend support.
+- Protect calls to hwinfo and kpartx (206423)
+- Add '-C' to fsck options (121946)
+- Hardcode libgcc_s.so.1 (204930)
+
+-------------------------------------------------------------------
+Wed Sep 20 13:43:28 CEST 2006 - schwab@suse.de
+
+- Fix dmraid detection.
+
+-------------------------------------------------------------------
+Tue Sep 19 08:55:05 CEST 2006 - hare@suse.de
+
+- Only enable dmraid when the respective binaries are installed.
+
+-------------------------------------------------------------------
+Sun Sep 17 23:06:26 CEST 2006 - seife@suse.de
+
+- add missing double quotes in the detection of the userspace
+  resume device (found by Robert Schiele, bug #206368.
+- correct the major/minor numbers for /dev/{u,}random.
+
+-------------------------------------------------------------------
+Wed Sep 13 20:21:34 CEST 2006 - seife@suse.de
+
+- add the possibility to resume from userspace suspend.
+
+-------------------------------------------------------------------
+Wed Sep 13 11:59:29 CEST 2006 - aj@suse.de
+
+- Add requirement on hwinfo.
+
+-------------------------------------------------------------------
+Wed Sep  6 10:50:15 CEST 2006 - hare@suse.de
+
+- Make IDE scan configurable; defaults to off
+
+-------------------------------------------------------------------
+Thu Aug 31 11:42:34 CEST 2006 - hare@suse.de
+
+- Detect dmraid devices
+- Do not call kpartx directly, called via udev now
+
+-------------------------------------------------------------------
+Thu Aug 24 14:46:39 CEST 2006 - olh@suse.de
+
+- add code to detect if system time is older than build time
+
+-------------------------------------------------------------------
+Thu Aug 24 11:32:37 CEST 2006 - olh@suse.de
+
+- remove udev version requirement to keep mkinitrd sles10 compatible
+
+-------------------------------------------------------------------
+Wed Aug 23 22:48:36 CEST 2006 - olh@suse.de
+
+- remove static binary handling. ash can not deal with added array
+  usage and static module-init-tools are larger than shared ones.
+
+-------------------------------------------------------------------
+Wed Aug 23 22:05:19 CEST 2006 - olh@suse.de
+
+- remove readlink function, binary exists since 8.2 and it breaks
+  syntax highlighting in vim
+
+-------------------------------------------------------------------
+Wed Aug 23 22:01:54 CEST 2006 - olh@suse.de
+
+- remove special handling for init args, use the kernel provided args
+
+-------------------------------------------------------------------
+Fri Aug 11 18:19:53 CEST 2006 - fink@suse.de
+
+- Run blogd within initramfs
+
+-------------------------------------------------------------------
+Tue Aug  8 14:59:48 CEST 2006 - hare@suse.de
+
+- Always load all md modules if md is activated
+- Detect EVMS volumes correctly (#188511)
+
+-------------------------------------------------------------------
+Wed Aug  2 15:47:58 CEST 2006 - hare@suse.de
+
+- Fixup boot from md. Do not rely on the on-disk
+  mdadm.conf as the information might be errorneous.
+  Better create an internal one based upon the current
+  settings (#178199)
+- Fixup booting from lvm on top of md (#192039)
+
+-------------------------------------------------------------------
+Wed Aug  2 08:25:36 CEST 2006 - olh@suse.de
+
+- remove redundant output in /init script
+
+-------------------------------------------------------------------
+Thu Jul 27 09:09:02 CEST 2006 - hare@suse.de
+
+- Fix cut&paste error in UUID= rules.
+
+-------------------------------------------------------------------
+Wed Jul 26 16:29:20 CEST 2006 - hare@suse.de
+
+- Add udev requirement for correct update (#189713)
+- Fixup udev rules for lilo etc. (#192725)
+
+-------------------------------------------------------------------
+Fri Jul 14 11:58:59 CEST 2006 - olh@suse.de
+
+- remove real-root-dev usage
+  its a writeonly variable for unused prepare_namespace()
+
+-------------------------------------------------------------------
+Tue Jun 27 15:53:46 CEST 2006 - hare@suse.de
+
+- Check for nfs last; persistent device names might
+  contain ':'.
+- Use 'module' link to get the correct module name for
+  network modules
+- Fixup detection of EVMS installations (#188511)
+
+-------------------------------------------------------------------
+Tue Jun 13 13:46:20 CEST 2006 - hare@suse.de
+
+- Get correct network parameter during installation
+  of root on iSCSI (#184393)
+
+-------------------------------------------------------------------
+Tue Jun 13 13:34:22 CEST 2006 - hare@suse.de
+
+- Fixup path names for udev helper binaries.
+
+-------------------------------------------------------------------
+Wed Jun  7 12:08:58 CEST 2006 - hare@suse.de
+
+- Revert changes for kdump; broke default installation
+  (#182341)
+
+-------------------------------------------------------------------
+Thu Jun  1 09:10:10 CEST 2006 - hare@suse.de
+
+- Fix script error for root on iSCSI (#178054)
+- Build additional initrds for kdump (#176908)
+- Do not pass xfs quota options on remount (#177096)
+- Fix syntax error in parsing of udev_timeout (#178106)
+- Fix spelling errors (#177918)
+- Enable DHCP mode for root on iSCSI.
+- Include 64bit EVMS modules, too (#179860)
+- Add 64-device-mapper.rules for udev (#175972)
+
+-------------------------------------------------------------------
+Tue May 30 16:27:35 CEST 2006 - hare@suse.de
+
+- Overhaul root on multipath (#176818)
+
+-------------------------------------------------------------------
+Mon May 22 17:05:18 CEST 2006 - hare@suse.de
+
+- Add dm-mod to domu-modules if required (#177467)
+- Parse 'ro' commandline option (#177599)
+
+-------------------------------------------------------------------
+Mon May 22 09:58:22 CEST 2006 - hare@suse.de
+
+- Handle persistent device names correctly if
+  LVM is activated (#175972)
+
+-------------------------------------------------------------------
+Fri May 19 17:04:38 CEST 2006 - hare@suse.de
+
+- Configure network interfaces automatically if
+  root device is an iSCSI device (#176804)
+
+-------------------------------------------------------------------
+Thu May 18 16:50:30 CEST 2006 - hare@suse.de
+
+- Configure S/390 CTC devices properly.
+- Start iSCSI connections properly (#176804)
+
+-------------------------------------------------------------------
+Tue May 16 11:55:25 CEST 2006 - hare@suse.de
+
+- Fix iSCSI root (#175191)
+- Fix feature list expansion (#175602)
+
+-------------------------------------------------------------------
+Mon May 15 10:24:23 CEST 2006 - hare@suse.de
+
+- Fix improper condition in mkinitrd (#94586).
+
+-------------------------------------------------------------------
+Mon May  8 02:29:19 CEST 2006 - garloff@suse.de
+
+- Add option u: also to the getopts call (#166921).
+
+-------------------------------------------------------------------
+Sun May  7 21:59:44 CEST 2006 - olh@suse.de
+
+- add some hints about nfsroot to the manpage
+
+-------------------------------------------------------------------
+Sun May  7 21:44:53 CEST 2006 - olh@suse.de
+
+- update the description of mkinitrd in the man page
+
+-------------------------------------------------------------------
+Sun May  7 21:32:22 CEST 2006 - olh@suse.de
+
+- update -k and -i description in manpage
+
+-------------------------------------------------------------------
+Sun May  7 21:07:37 CEST 2006 - olh@suse.de
+
+- use the sysfs modalias file when looking for a network driver
+  the driver symlink does not always match the kernel module name
+
+-------------------------------------------------------------------
+Sun May  7 20:59:49 CEST 2006 - olh@suse.de
+
+- add nfs module if nfsroot is detected
+
+-------------------------------------------------------------------
+Tue Apr 25 20:07:14 CEST 2006 - olh@suse.de
+
+- add more raid personalities based on mdstat and mdadm.conf
+  (#168518, #166239)
+
+-------------------------------------------------------------------
+Mon Apr 24 10:16:35 CEST 2006 - hare@suse.de
+
+- Generate correct initrd for Xen (#168115)
+
+-------------------------------------------------------------------
+Sat Apr 22 01:13:27 CEST 2006 - olh@suse.de
+
+- remove the requirement for expr, except for evms, bash does math
+
+-------------------------------------------------------------------
+Sat Apr 22 01:10:34 CEST 2006 - olh@suse.de
+
+- mkinitrd does not work if /usr is unavailable, exit early
+
+-------------------------------------------------------------------
+Fri Apr 21 23:32:41 CEST 2006 - olh@suse.de
+
+- remove selinux support, it references non-existant files in /usr
+
+-------------------------------------------------------------------
+Fri Apr 21 15:45:45 CEST 2006 - olh@suse.de
+
+- remove +s bits from mount to allow mkinitrd as unprivileged user
+
+-------------------------------------------------------------------
+Fri Apr 21 13:06:42 CEST 2006 - olh@suse.de
+
+- include fsck binary if fstab root mountpoint contains colons
+
+-------------------------------------------------------------------
+Fri Apr 21 11:24:14 CEST 2006 - olh@suse.de
+
+- consider bootsplash only on DOS compatibles
+
+-------------------------------------------------------------------
+Thu Apr 20 23:45:36 CEST 2006 - olh@suse.de
+
+- remove dead code in /init script, rootdevn serves no purpose
+
+-------------------------------------------------------------------
+Thu Apr 20 23:44:00 CEST 2006 - olh@suse.de
+
+- fix typo in lvm2 detection, better lvdisplay output parsing
+
+-------------------------------------------------------------------
+Thu Apr 20 23:39:11 CEST 2006 - olh@suse.de
+
+- remove hardcoded /dev/md0 to allow root on md1 and above (#164600)
+
+-------------------------------------------------------------------
+Wed Apr 19 15:13:02 CEST 2006 - olh@suse.de
+
+- escape udev_timeout variable
+
+-------------------------------------------------------------------
+Wed Apr 19 15:05:28 CEST 2006 - olh@suse.de
+
+- use correct udevsettle option syntax
+
+-------------------------------------------------------------------
+Tue Apr 18 19:30:21 CEST 2006 - olh@suse.de
+
+- handle unexpected mdadm -Db /dev/md0 output correctly for raid5 (#164600)
+
+-------------------------------------------------------------------
+Thu Apr 13 17:28:35 CEST 2006 - trenn@suse.de
+
+- added sysvinit and reiserfs to "Requires" packages
+
+-------------------------------------------------------------------
+Wed Apr 12 13:49:17 CEST 2006 - hare@suse.de
+
+- consistent usage of iscsi_root (#165456)
+
+-------------------------------------------------------------------
+Tue Apr 11 11:55:29 CEST 2006 - hare@suse.de
+
+- Increase udev timeout to 30 seconds.
+
+-------------------------------------------------------------------
+Fri Apr  7 12:11:27 CEST 2006 - hare@suse.de
+
+- Use the udevsettle program instead of shell scripts (#163010)
+
+-------------------------------------------------------------------
+Wed Apr  5 12:42:07 CEST 2006 - hare@suse.de
+
+- Fixed typo in s390_dasd_sysfs (#156152)
+
+-------------------------------------------------------------------
+Tue Apr  4 15:43:05 CEST 2006 - garloff@suse.de
+
+- Put DOMU_INITRD_MODULES into xen initrds and load them rather
+  than driver_modules in a Xen domU.
+
+-------------------------------------------------------------------
+Fri Mar 31 09:13:31 CEST 2006 - hare@suse.de
+
+- Get splash sizes from framebuffer, too (#141098)
+
+-------------------------------------------------------------------
+Thu Mar 23 11:42:39 CET 2006 - hare@suse.de
+
+- Always check for mounted /proc and /sys (#151879)
+
+-------------------------------------------------------------------
+Wed Mar 22 11:23:43 CET 2006 - hare@suse.de
+
+- Display correct DASD discipline (#156152 - LTC22264)
+- Include correct udev rule.
+
+-------------------------------------------------------------------
+Mon Mar 20 09:38:15 CET 2006 - hare@suse.de
+
+- Add '-f' option to enable additional features
+  (#157678 - LTC22362, #130696)
+
+-------------------------------------------------------------------
+Fri Mar 17 13:14:05 CET 2006 - hare@suse.de
+
+- use /sbin/udevtrigger instead of shell logic (#148043)
+
+-------------------------------------------------------------------
+Tue Mar 14 15:41:14 CET 2006 - hare@suse.de
+
+- Check for the rootfstype to select which fsck to include
+- Unset CDPATH for compability with old installation.
+
+-------------------------------------------------------------------
+Thu Mar  9 11:38:33 CET 2006 - hare@suse.de
+
+- Add mpath_id program for multipathing (#149995 - LTC21557)
+- Dropping into a shell if the rootfstype is invalid (#154284)
+- Fix booting from USB devices (#155857)
+
+-------------------------------------------------------------------
+Wed Mar  1 15:03:39 CET 2006 - hare@suse.de
+
+- Fix boot from LVM over software RAID (#152237)
+- Fixup LVM default settings (#152790)
+
+-------------------------------------------------------------------
+Tue Feb 28 16:22:57 CET 2006 - hare@suse.de
+
+- Do not try to kill iscsid if it's not running (#153374)
+
+-------------------------------------------------------------------
+Tue Feb 21 14:13:01 CET 2006 - hare@suse.de
+
+- Fix remount call (#151424)
+
+-------------------------------------------------------------------
+Sun Feb 19 16:05:50 CET 2006 - agruen@suse.de
+
+- Use new options of /sbin/update-bootloader. This updates the
+  bootloader for us, so no need to call /sbin/new-kernel-pkg
+  anymore.
+- /sbin/new-kernel-pkg is now obsolete; drop it (#148393)
+
+-------------------------------------------------------------------
+Fri Feb 17 16:24:46 CET 2006 - hare@suse.de
+
+- Update root on iSCSI handling for open-iscsi (#146890)
+- Load network module automatically.
+
+-------------------------------------------------------------------
+Thu Feb 16 12:57:15 CET 2006 - hare@suse.de
+
+- Rewrote static device configuration (#147882)
+- Added documentation for all kernel commandline parameter.
+
+-------------------------------------------------------------------
+Sun Feb 12 11:26:29 CET 2006 - cthiel@suse.de
+
+- link run-init dynamically, because glibc is in initrd anyway
+
+-------------------------------------------------------------------
+Wed Feb  8 16:59:49 CET 2006 - hare@suse.de
+
+- Add 05-udev-early.rules (#148818)
+- Fix parsing of dasd= parameter (#145198 - LTC20909)
+- Fix journal handling (#148474)
+
+-------------------------------------------------------------------
+Mon Feb  6 16:07:42 CET 2006 - hare@suse.de
+
+- corrected an error for invalid rootfstype (#142847)
+- Rewrote md activation (#147795)
+- Parse /etc/fstab to update mount parameters.
+
+-------------------------------------------------------------------
+Fri Feb  3 16:18:20 CET 2006 - agruen@suse.de
+
+- Never add a bootsplash for kernel flavors kdump, um, xen*.
+
+-------------------------------------------------------------------
+Thu Feb  2 08:34:34 CET 2006 - hare@suse.de
+
+- Wrong initialisation for LVM (#147415)
+
+-------------------------------------------------------------------
+Wed Feb  1 12:47:51 CET 2006 - hare@suse.de
+
+- Do not try to rewrite symlink if mkinitrd fails (#145888)
+- Clean up all directories on failure
+- Rewrite '-b' and '-a' arguments as run_init would otherwise
+  try to interpret them.
+
+-------------------------------------------------------------------
+Mon Jan 30 16:18:43 CET 2006 - hare@suse.de
+
+- Try for mdadm first as raidstart is deprecated (#146304)
+
+-------------------------------------------------------------------
+Mon Jan 30 11:46:01 CET 2006 - hare@suse.de
+
+- Do not use read() on /proc/devices (#146095).
+- LVM2 also requires a call to vgchange (#146095).
+
+-------------------------------------------------------------------
+Wed Jan 25 21:38:20 CET 2006 - mls@suse.de
+
+- converted neededforbuild to BuildRequires
+
+-------------------------------------------------------------------
+Wed Jan 25 08:09:38 CET 2006 - hare@suse.de
+
+- new-kernel-pkg: Remove code for updating zipl.conf,
+  is now handled by the new perl-bootloader.
+- mkinitrd: Remove udevstart reference.
+
+-------------------------------------------------------------------
+Tue Jan 24 12:36:06 CET 2006 - hare@suse.de
+
+- Fix journal handling
+- Copy QLogic firmware into the initramfs
+
+-------------------------------------------------------------------
+Mon Jan 23 16:13:44 CET 2006 - hare@suse.de
+
+- Update iscsi handling.
+
+-------------------------------------------------------------------
+Thu Jan 19 17:04:45 CET 2006 - hare@suse.de
+
+- Add handling of external journal (Feature ID #300179).
+
+-------------------------------------------------------------------
+Fri Jan 13 12:33:17 CET 2006 - hare@suse.de
+
+- Rework device detection.
+  We're now waiting for udev to settle before checking for rootfs.
+- MD Integration. Should now work properly with md.
+
+-------------------------------------------------------------------
+Fri Dec 23 20:42:44 CET 2005 - kay.sievers@suse.de
+
+- don't mount /dev "noexec", X can't mmap() video BIOS with /dev/mem
+
+-------------------------------------------------------------------
+Mon Dec 19 10:54:41 CET 2005 - hare@suse.de
+
+- Add '-V' to fsck (#121946)
+- Enable 'start_ro' for md devices (#
+- Pass all arguments to init (#132122)
+
+-------------------------------------------------------------------
+Fri Dec 16 14:59:12 CET 2005 - hare@suse.de
+
+- Run udevd within initramfs
+- Set the correct mode for /dev/shm (#138451)
+- Implement root on multipath (Feature ID #235, #110256).
+
+-------------------------------------------------------------------
+Mon Dec  5 15:53:53 CET 2005 - hare@suse.de
+
+- Add '-M' to specify non-standard System.map file (#118554)
+
+-------------------------------------------------------------------
+Mon Dec  5 15:43:37 CET 2005 - kay.sievers@vrfy.org
+
+- Remove klibc support; glibc is now mandatory
+- Fix udev support
+
+-------------------------------------------------------------------
+Fri Nov 18 08:51:48 CET 2005 - hare@suse.de
+
+- Removed initrd support; initramfs is now mandatory
+- Removed pivot_root, unneccessary now
+- Fixed spec file and manpage
+
+-------------------------------------------------------------------
+Fri Nov 11 16:31:37 CET 2005 - hare@suse.de
+
+- Fix mount --move to really have /dev on tmpfs
+- Add devnumber script as we're now having bash.
+
+-------------------------------------------------------------------
+Mon Nov  7 14:13:20 CET 2005 - hare@suse.de
+
+- Default to glibc binaries
+- udev is now mandatory
+- Add run-init program
+- events are not stored anymore
+
+-------------------------------------------------------------------
+Mon Oct 17 19:48:27 CEST 2005 - fehr@suse.de
+
+- fix problem handling devices in subdir of /dev in fstab when
+  root fs is on evms (#119140)
+
+-------------------------------------------------------------------
+Mon Sep 12 17:50:57 CEST 2005 - agruen@suse.de
+
+- Also include and load kernel modules for additional storage
+  controllers other than the last (115930). This affects multi-
+  controller systems when upgrading only.
+
+-------------------------------------------------------------------
+Fri Sep  9 14:32:07 CEST 2005 - hare@suse.de
+
+- Raise device timeout to 10 secs (#116101).
+
+-------------------------------------------------------------------
+Thu Sep  8 13:33:24 CEST 2005 - hare@suse.de
+
+- Fixed installation permissions (#114849).
+
+-------------------------------------------------------------------
+Wed Sep  7 16:16:32 CEST 2005 - agruen@suse.de
+
+- Consolidate the code that copies modules into the initrd.
+- modprobe unresolved instead of resolved modules so that modprobe
+  will go through the usual rules when loading.
+- Add $module.* parameters from the kernel command line for
+  filesystem modules, too.
+
+-------------------------------------------------------------------
+Wed Sep  7 14:31:18 CEST 2005 - agruen@suse.de
+
+- Switch from using insmod to modprobe: modprobe will
+  fetch module parameters from modprobe.conf, so we don't need to
+  add them by hand.
+- Add a version of /bin/true: modprobe.conf might use it.
+
+-------------------------------------------------------------------
+Wed Sep  7 12:26:39 CEST 2005 - hare@suse.de
+
+- Re-enable scan for IDE devices (#114511)
+- Return proper error codes (#115374)
+- Fix NFS-root (#87351)
+
+-------------------------------------------------------------------
+Mon Sep  5 16:34:44 CEST 2005 - hare@suse.de
+
+- Do not run udev rules for which no binaries are present (#115133)
+
+-------------------------------------------------------------------
+Mon Sep  5 16:29:08 CEST 2005 - agruen@suse.de
+
+- Some modules we generally include in initrds do not exist
+  with every kernel configuration. Only try to include modules
+  that actually exist.
+
+-------------------------------------------------------------------
+Mon Sep  5 10:43:22 CEST 2005 - hare@suse.de
+
+- Properly (re-)set $uld_modules (#115217)
+- Add comments to mkinitrd.
+
+-------------------------------------------------------------------
+Sun Sep  4 19:04:48 CEST 2005 - schwab@suse.de
+
+- Filter out empty lines in resolve_modules.
+
+-------------------------------------------------------------------
+Sat Sep  3 18:47:52 CEST 2005 - agruen@suse.de
+
+- Fix module parameter handling (broken with the #71218 fix).
+
+-------------------------------------------------------------------
+Fri Sep  2 17:43:51 CEST 2005 - kasievers@suse.de
+
+- read DEV_ON_TMPFS from /etc/sysconfig/kernel (#114400)
+  with default yes.
+
+-------------------------------------------------------------------
+Sat Aug 27 22:48:48 CEST 2005 - cthiel@suse.de
+
+- Fix splash size autodetection (#113573)
+
+-------------------------------------------------------------------
+Fri Aug 26 12:04:28 CEST 2005 - hare@suse.de
+
+- Add modprobe and modules.dep for proper handling of modules
+- Fix mount permissions (#112765)
+- Switch off binaries not available during boot (#112820)
+
+-------------------------------------------------------------------
+Wed Aug 17 08:35:23 CEST 2005 - hare@suse.de
+
+- Pass only valid parameters to init (#104984).
+- Remove ROOT= parameter parsing
+- Do not evaluate IDE modules if network interface is set (#83782).
+
+-------------------------------------------------------------------
+Tue Aug 16 20:08:10 CEST 2005 - agruen@suse.de
+
+- Revert change that was meant for the perl-Bootloader code, which
+  we are not currently using (fixes 104956).
+
+-------------------------------------------------------------------
+Fri Aug  5 09:47:10 CEST 2005 - hare@suse.de
+
+- Fix booting with lilo (#100492)
+
+-------------------------------------------------------------------
+Mon Jul 25 14:03:18 CEST 2005 - hare@suse.de
+
+- Fix booting with dynamic /dev.
+- Add udev db directory.
+- Make software suspend working again (#97875, #95601)
+
+-------------------------------------------------------------------
+Fri Jul  8 16:37:47 CEST 2005 - hare@suse.de
+
+- Update to match latest udev program locations.
+- Fix nfsroot.
+
+-------------------------------------------------------------------
+Tue Jun 21 14:31:11 CEST 2005 - agruen@suse.de
+
+- vga mode recognition: during initial installation, mkinitrd is
+  called before the bootloader config (e.g., /boot/grub/menu.lst)
+  is written. IN that case, also parse the vga= mode setting out
+  of /proc/cmdline (91259).
+
+-------------------------------------------------------------------
+Fri Jun 17 11:03:40 CEST 2005 - hare@suse.de
+
+- Fix even more locations.
+- Parse nfsroot= parameter.
+
+-------------------------------------------------------------------
+Wed Jun 15 16:33:38 CEST 2005 - hare@suse.de
+
+- Fix locations for udev_volume_id and devnumber.
+
+-------------------------------------------------------------------
+Wed Jun 15 13:14:42 CEST 2005 - hare@suse.de
+
+- Fix locations for hotplugeventrecorder and run_init.
+
+-------------------------------------------------------------------
+Tue Jun 14 12:22:57 CEST 2005 - hare@suse.de
+
+- Update for new udev program locations.
+
+-------------------------------------------------------------------
+Mon May  9 09:42:30 CEST 2005 - agruen@suse.de
+
+- module_upgrade: Add script for renaming modules in all system
+  config files. This is invoked from the kernel post-install
+  script (#47755).
+
+-------------------------------------------------------------------
+Mon May  2 22:43:08 CEST 2005 - schwab@suse.de
+
+- Initialize fs_modules and drv_modules in each round.
+
+-------------------------------------------------------------------
+Thu Mar 31 11:03:56 CEST 2005 - hare@suse.de
+
+- Fix booting from DASD on S/390.
+
+-------------------------------------------------------------------
+Mon Mar 21 18:12:49 CET 2005 - agruen@suse.de
+
+- Back out unnecessary change "Include boot-time udev rules if
+  present (#74013)".
+- Fix check for "unknown volume type" result of udev.
+- Re-add support for multiple splash images in the same initrd
+  (mostly from Michael Schroeder <mls@suse.de>).
+
+-------------------------------------------------------------------
+Mon Mar 21 14:43:54 CET 2005 - hare@suse.de
+
+- Include boot-time udev rules if present (#74013).
+
+-------------------------------------------------------------------
+Mon Mar 21 11:01:34 CET 2005 - hare@suse.de
+
+- Fix passing of command-line options to the ide driver (#72454)
+- Export rootfs filesystem type in ROOTFS_FSTYPE.
+
+-------------------------------------------------------------------
+Wed Mar 16 15:58:50 CET 2005 - hare@suse.de
+
+- Check for invalid fs-types
+- Add check for root=0xXXX type boot parameter.
+
+-------------------------------------------------------------------
+Mon Mar 14 16:53:18 CET 2005 - schwab@suse.de
+
+- Make emergency shell interactive.
+
+-------------------------------------------------------------------
+Mon Mar 14 14:22:40 CET 2005 - hare@suse.de
+
+- Fix booting on SCSI machines.
+
+-------------------------------------------------------------------
+Mon Mar 14 12:20:00 CET 2005 - hare@suse.de
+
+- Fix glibc usage (#71941)
+
+-------------------------------------------------------------------
+Fri Mar 11 16:48:49 CET 2005 - hare@suse.de
+
+- Fix nfs-root.
+- Fix rootfs detection for LVM1.
+
+-------------------------------------------------------------------
+Fri Mar 11 12:53:23 CET 2005 - agruen@suse.de
+
+- Fix stripping .o and .ko extensions from module names.
+
+-------------------------------------------------------------------
+Thu Mar 10 18:31:40 CET 2005 - ro@suse.de
+
+- typo fix "rootfstype" -> "$rootfstype"
+
+-------------------------------------------------------------------
+Thu Mar 10 14:25:15 CET 2005 - hare@suse.de
+
+- Fixed dynamic /dev generation.
+  If disabled, dynamic devs will be mounted on
+  /lib/klibc/dev.
+- Separate driver and fs module for clean resume (#71218).
+- Attempt fsck of the rootfs if possible.
+
+-------------------------------------------------------------------
+Thu Mar 10 08:41:57 CET 2005 - hare@suse.de
+
+- Fix mount by label properly (#65886).
+
+-------------------------------------------------------------------
+Wed Mar  9 12:00:50 CET 2005 - hare@suse.de
+
+- Always mount rootfs read-write when using jfs (#67328).
+- Ignore modprobe 'install' lines (#71758).
+- Update nfs-root.
+- Include ahci driver for ICH6 boards (#71758).
+- Really fix booting from LVM2.
+
+-------------------------------------------------------------------
+Mon Mar  7 09:09:25 CET 2005 - hare@suse.de
+
+- Fixed booting on LVM2 (#67221).
+- Try to make umount /dev work.
+  (Disabled for now, doesn't work).
+
+-------------------------------------------------------------------
+Fri Mar  4 16:43:20 CET 2005 - hare@suse.de
+
+- Added /dev/mdX device nodes (#67221)
+
+-------------------------------------------------------------------
+Fri Mar  4 13:00:51 CET 2005 - hare@suse.de
+
+- Export ROOTFS_BLKDEV for boot scripts.
+
+-------------------------------------------------------------------
+Thu Mar  3 09:03:04 CET 2005 - hare@suse.de
+
+- Do not load ide-floppy by default.
+
+-------------------------------------------------------------------
+Mon Feb 28 17:16:26 CET 2005 - hare@suse.de
+
+- Add device /dev/isdninfo as no-one seems to create it (#66745).
+
+-------------------------------------------------------------------
+Mon Feb 28 12:21:58 CET 2005 - hare@suse.de
+
+- Add links to /dev/stdin, /dev/stdout and /dev/stderr (#66841).
+
+-------------------------------------------------------------------
+Sun Feb 27 18:08:16 CET 2005 - trenn@suse.de
+
+- correctly add dsdt to initramfs
+- corrected manpage -> initramfs default -> -R use initrd
+
+-------------------------------------------------------------------
+Wed Feb 23 14:52:17 CET 2005 - hare@suse.de
+
+- Make root=0304 style parameters working again (#66023)
+
+-------------------------------------------------------------------
+Mon Feb 21 14:30:17 CET 2005 - agruen@suse.de
+
+- Fix check_ide_modules_pcimap.
+
+-------------------------------------------------------------------
+Wed Feb 16 18:41:31 CET 2005 - agruen@suse.de
+
+- Change default to create an initramfs instead of an initrd.
+
+-------------------------------------------------------------------
+Mon Feb 14 17:01:41 CET 2005 - agruen@suse.de
+
+- udev_discover_root got broken for root=XXXX and root=XXX
+  boot command line parameters as generated by lilo.
+- Fix mount by label (#49246).
+
+-------------------------------------------------------------------
+Fri Feb 11 16:44:39 CET 2005 - hare@suse.de
+
+- Call hwinfo to find IDE modules.
+
+-------------------------------------------------------------------
+Tue Feb  8 17:33:45 CET 2005 - fehr@suse.de
+
+- fix handling of unstable EVMS minor device numbers in initrd (#49277)
+
+-------------------------------------------------------------------
+Fri Feb  4 15:30:12 CET 2005 - hare@suse.de
+
+- Add -I for static ethernet configuration.
+
+-------------------------------------------------------------------
+Fri Feb  4 09:36:36 CET 2005 - hare@suse.de
+
+- Make initramfs to accept init= parameter (#50455).
+
+-------------------------------------------------------------------
+Mon Jan 31 15:14:22 CET 2005 - hare@suse.de
+
+- Remove mkinitramfs symlinks (#50301)
+- Add -V for vendor-specific scripts (#50302)
+
+-------------------------------------------------------------------
+Mon Jan 31 11:44:47 CET 2005 - hare@suse.de
+
+- Update udev support
+- Fix support for custom ACPI DSDT.
+
+-------------------------------------------------------------------
+Fri Jan 28 11:18:45 CET 2005 - schwab@suse.de
+
+- make package noarch
+
+-------------------------------------------------------------------
+Thu Jan 27 17:17:55 CET 2005 - agruen@suse.de
+
+- Bump version number so that we can require a recent-enough
+  version of mkinitrd in kernel-$FLAVOR.rpm.
+
+-------------------------------------------------------------------
+Thu Jan 27 09:08:32 CET 2005 - hare@suse.de
+
+- Relax check for DSDT.
+
+-------------------------------------------------------------------
+Fri Jan 21 15:35:52 CET 2005 - hare@suse.de
+
+- Make root device discovery by udev optional again as it
+  breaks nfs-root.
+- Fix module enabling for modularized IDE subsystem.
+
+-------------------------------------------------------------------
+Thu Jan 20 10:47:54 CET 2005 - hare@suse.de
+
+- Rearrange dhcp sections to make nfs-root work again.
+- Actually include udev as it's always needed.
+- Re-add hotplug.sh which is needed for initramfs.
+
+-------------------------------------------------------------------
+Sun Dec 12 23:18:15 CET 2004 - olh@suse.de
+
+- drop mkinitramfs
+
+-------------------------------------------------------------------
+Mon Nov  8 16:43:52 CET 2004 - agruen@suse.de
+
+- Recognize the sysrq={yes|1} kernel command-line option for
+  switching on sysrq earlier during boot-up.
+
+-------------------------------------------------------------------
+Mon Nov  8 16:02:17 CET 2004 - olh@suse.de
+
+- mkinitramfs: Fix ldd output parsing
+
+-------------------------------------------------------------------
+Thu Oct 28 14:53:06 CEST 2004 - olh@suse.de
+
+- mkinitramfs: create /var/run (#34258 - LTC6040)
+
+-------------------------------------------------------------------
+Wed Oct 27 16:47:40 CEST 2004 - olh@suse.de
+
+- mkinitramfs: fix iscsi root, move udevstart (#34258 - LTC6040)
+
+-------------------------------------------------------------------
+Tue Oct 26 16:31:50 CEST 2004 - agruen@suse.de
+
+- Fix ldd output parsing (last change was still broken in some
+  cases).
+- /sbin/udevstart now is a symlink to udev. Copy udev binaries
+  so that the symlink will still work.
+- Allow to pivot-root mount by UUID (UUID=* was missing in case
+  statement).
+
+-------------------------------------------------------------------
+Mon Oct 18 21:07:47 CEST 2004 - olh@suse.de
+
+- fix syntax error in mkinitramfs-kinit.sh, in nfsroot path
+
+-------------------------------------------------------------------
+Mon Oct 18 18:09:33 CEST 2004 - agruen@suse.de
+
+- Adapt the regexp for parsing the ldd output to recent changes.
+- Add missing s390 case to installkernel.
+- Clean up architecture tests. A few other cleanups.
+
+-------------------------------------------------------------------
+Sat Oct 16 11:46:19 CEST 2004 - olh@suse.de
+
+- use either vmlinux or vmlinuz in installkernel (#39427 - LTC7872)
+
+-------------------------------------------------------------------
+Tue Oct 12 15:47:04 CEST 2004 - agruen@suse.de
+
+- Revert the last change: It is cleaner to create an empty
+  /etc/mtab instead.
+
+-------------------------------------------------------------------
+Sun Oct  3 18:53:08 CEST 2004 - agruen@suse.de
+
+- Add missing -n options to a few umount invocations.
+
+-------------------------------------------------------------------
+Thu Sep  9 14:50:46 CEST 2004 - agruen@suse.de
+
+- Create missing /dev/shm directory.
+
+-------------------------------------------------------------------
+Fri Sep  3 20:59:08 CEST 2004 - olh@suse.de
+
+- mkinitramfs: bind mount /etc/mtab to /proc/1/mounts
+
+-------------------------------------------------------------------
+Fri Sep  3 20:57:02 CEST 2004 - olh@suse.de
+
+- mkinitramfs: copy the /tmp/net-*.conf files to /dev/nfsroot/
+
+-------------------------------------------------------------------
+Fri Sep  3 20:53:47 CEST 2004 - olh@suse.de
+
+- mkinitramfs: set the hostname from dhcp reply
+
+-------------------------------------------------------------------
+Fri Sep  3 20:51:28 CEST 2004 - olh@suse.de
+
+- mkinitramfs: ipconfig writes a /tmp/net-$interface.conf
+  source the first one found to fill enviroment with dhcp reply
+
+-------------------------------------------------------------------
+Fri Aug 27 13:09:42 CEST 2004 - olh@suse.de
+
+- mkinitramfs: create /dev/std{in,out,err} symlinks (#43338)
+
+-------------------------------------------------------------------
+Tue Aug 24 20:34:03 CEST 2004 - agruen@suse.de
+
+- Remove support for the root_dir parameter: The same effect can
+  be achieved by running mkinitrd with chroot inside the real
+  root directory.
+- Add missing -p flags to mkdirs.
+
+-------------------------------------------------------------------
+Sun Aug 22 22:41:17 CEST 2004 - olh@suse.de
+
+- mkinitramfs: move mount $udev_root to avoid duplicate entries
+  in /proc/self/mounts
+
+-------------------------------------------------------------------
+Sun Aug 22 20:47:27 CEST 2004 - olh@suse.de
+
+- mkinitramfs: if nfsroot= is given, force root=/dev/nfs
+
+-------------------------------------------------------------------
+Sun Aug 22 20:37:14 CEST 2004 - olh@suse.de
+
+- mkinitramfs: rearrange the kinit.sh code, mount /dev earlier,
+  run mknod earlier, run udev on asynchronous events
+  run debug shell before vendor script
+
+-------------------------------------------------------------------
+Sun Aug 22 20:15:08 CEST 2004 - olh@suse.de
+
+- mkinitramfs: handle ip=*:* case, ipconfig is fixed
+
+-------------------------------------------------------------------
+Sun Aug 22 20:13:46 CEST 2004 - olh@suse.de
+
+- mkinitramfs: get debug=true from enviroment
+
+-------------------------------------------------------------------
+Sat Aug 21 16:18:09 CEST 2004 - olh@suse.de
+
+- mkinitramfs: fix typo in help text output
+
+-------------------------------------------------------------------
+Sat Aug 21 16:13:36 CEST 2004 - olh@suse.de
+
+- mkinitramfs: check if lilo.conf is readable to avoid warning
+
+-------------------------------------------------------------------
+Fri Aug 20 11:22:24 CEST 2004 - olh@suse.de
+
+- mkinitrd: /run_init must be s static binary because /lib is
+            already gone when it runs, take the klibc version
+
+-------------------------------------------------------------------
+Fri Aug 20 11:18:41 CEST 2004 - olh@suse.de
+
+- mkinitrd: udevinfo.static is in /sbin again
+
+-------------------------------------------------------------------
+Thu Aug 12 15:11:41 CEST 2004 - hare@suse.de
+
+- Added -g for including glibc binaries instead of klibc ones.
+
+-------------------------------------------------------------------
+Mon Aug  2 09:54:35 CEST 2004 - hare@suse.de
+
+Initial update for SL9.2
+- Added '-r' to mkinitrd to build initramfs instead of initrd.
+- Removed 2.4.X code.
+- Enabled udev as default for all modes.
+
+-------------------------------------------------------------------
+Mon Aug  2 08:37:53 CEST 2004 - hare@suse.de
+
+- #43406: Fix modules loading error on SATA-only machines.
+
+-------------------------------------------------------------------
+Wed Jul 28 18:15:54 CEST 2004 - olh@suse.de
+
+- mkinitramfs: (#42940 - LTC9911)
+  all dev nodes belong to root, according to udev.permissions
+  but some may be owned by a group other than root
+
+-------------------------------------------------------------------
+Wed Jul 28 15:21:28 CEST 2004 - hare@suse.de
+
+- #42958: /sbin/MAKEDEV must be linked into /dev if
+  existing.
+
+-------------------------------------------------------------------
+Wed Jul 28 10:39:51 CEST 2004 - hare@suse.de
+
+- #43352: dasdview was not copied into the initrd;
+  scsi modules were copied with no SCSI device present on S/390,
+  and a symlink to sed were created with sed already present.
+
+-------------------------------------------------------------------
+Thu Jul  1 23:49:40 CEST 2004 - agruen@suse.de
+
+- #42696: Lilo passes the root device number as three to four-digit
+  hex number. Make mkinitrd recognize the dree-digit case
+  correctly.
+
+-------------------------------------------------------------------
+Wed Jun 23 18:17:31 CEST 2004 - fehr@suse.de
+
+- Add code that makes root filesystem on EVMS possible (#41198)
+
+-------------------------------------------------------------------
+Mon Jun 21 17:00:11 CEST 2004 - agruen@suse.de
+
+- The udev helper scripts use /lib/klibc/bin/sh as their shell, so
+  leave the shell where it comes from, and make /bin/sh a symlink
+  to that location.
+- Add a number of binaries the used scripts are using.
+- Temporarily mount /dev/shm for the udev scripts.
+
+-------------------------------------------------------------------
+Sun Jun 20 20:07:19 CEST 2004 - agruen@suse.de
+
+- #42250: Fix race when using lvm2 / device mapper / evms root
+  file system in combination with udev: Need to wait for udev to
+  create /dev/mapper/control.
+- Add initrd=trace kernel command line option: turns on command
+  tracing in linuxrc start-up script (set -x).
+
+-------------------------------------------------------------------
+Fri Jun 18 03:41:19 CEST 2004 - agruen@suse.de
+
+- #42171: Always create an initrd. Not having one may create all
+  sorts of problems: Bad boot configurations, udev device
+  discovery will be missing, and maybe more.
+
+-------------------------------------------------------------------
+Fri Jun 18 02:55:26 CEST 2004 - agruen@suse.de
+
+- With multiple root= kernel command line options, the last one is
+  supposed to count.
+- Lilo tries to be clever and strips off the /dev/ prefix from
+  device names. Check and fix; this is needed for EVMS root.
+- Convert some back-tick quoting to $() quoting.
+
+-------------------------------------------------------------------
+Mon Jun 14 11:51:48 CEST 2004 - olh@suse.de
+
+- mkinitramfs: mount /proc correctly
+
+-------------------------------------------------------------------
+Thu Jun 10 22:47:38 CEST 2004 - agruen@suse.de
+
+- #41896: Fix do_chroot.
+
+-------------------------------------------------------------------
+Wed Jun  9 01:25:37 CEST 2004 - agruen@suse.de
+
+- #41821: mkinitrd / mkiniramfs vga mode scanning bug.
+
+-------------------------------------------------------------------
+Tue Jun  8 13:16:02 CEST 2004 - hare@suse.de
+
+- Use IFS in a subshell to avoid errors.
+
+-------------------------------------------------------------------
+Tue Jun  8 12:38:08 CEST 2004 - agruen@suse.de
+
+- #41765: Reset IFS to original value in one place.
+- Reset initrd_bins between creating multiple initrds.
+
+-------------------------------------------------------------------
+Mon Jun  7 14:29:06 CEST 2004 - hare@suse.de
+
+- mkinitrd: add sed to initrd if S/390 zfcp is used (#41484).
+
+-------------------------------------------------------------------
+Sat Jun  5 21:18:29 CEST 2004 - olh@suse.de
+
+- mkinitramfs: create 32 mdN nodes, create isdninfo,
+  remove sleep 3 in nfsmount
+
+-------------------------------------------------------------------
+Wed Jun  2 18:00:29 CEST 2004 - bk@suse.de
+
+- mkinitrd: write commandline as command line in warning (#41542)
+
+-------------------------------------------------------------------
+Wed Jun  2 16:31:10 CEST 2004 - hare@suse.de
+
+- mkinitrd: Emit warning if no disks are found (#41542).
+
+-------------------------------------------------------------------
+Wed Jun  2 12:50:43 CEST 2004 - hare@suse.de
+
+- mkinitrd: Always activate all disks (#41484).
+
+-------------------------------------------------------------------
+Wed Jun  2 00:10:07 CEST 2004 - olh@suse.de
+
+- mkinitramfs: add raid/lvm support if raid or dm-mod given with -m
+
+-------------------------------------------------------------------
+Tue Jun  1 15:01:17 CEST 2004 - hare@suse.de
+
+- mkinitrd: Fix EVMS handling on S/390 (#40857).
+
+-------------------------------------------------------------------
+Mon May 31 20:30:34 CEST 2004 - olh@suse.de
+
+- mkinitramfs: disable 'debug' per default in kinit.sh
+
+-------------------------------------------------------------------
+Mon May 31 19:44:22 CEST 2004 - olh@suse.de
+
+- mkinitramfs: use modprobe.conf from -b <dir>/etc, if it exits
+
+-------------------------------------------------------------------
+Sun May 30 00:02:59 CEST 2004 - olh@suse.de
+
+- mkinitramfs: if -m is given, expect that ALL required modules
+  are given on cmdline, dont do autodetection for root filesystem
+  type and lvm/md/dm in this case
+  check also if /proc is mounted, do not fail if not
+  this is required if the initrd is built for another host as user
+
+-------------------------------------------------------------------
+Sat May 29 23:36:31 CEST 2004 - olh@suse.de
+
+- mkinitramfs: remove <() process substitution,
+  doesnt work without proc. use 'here document' instead
+
+-------------------------------------------------------------------
+Sat May 29 23:25:31 CEST 2004 - olh@suse.de
+
+- mkinitramfs: use -b dir in default_kernel_images()
+
+-------------------------------------------------------------------
+Sat May 29 23:19:29 CEST 2004 - olh@suse.de
+
+- mkinitramfs-kinit.sh:
+  remove hardcoded unconditional 42 panic timeout
+
+-------------------------------------------------------------------
+Wed May 26 15:53:20 CEST 2004 - agruen@suse.de
+
+- #41225: vga mode parsing bug.
+
+-------------------------------------------------------------------
+Wed May 26 15:11:04 CEST 2004 - olh@suse.de
+
+- mkinitramfs: remove misleading error message. (#39625)
+
+-------------------------------------------------------------------
+Tue May 25 20:51:54 CEST 2004 - garloff@suse.de
+
+- mkinitrd and mkinitramfs: Find iscsid in either /usr/sbin or
+  /sbin.
+
+-------------------------------------------------------------------
+Mon May 24 21:48:46 CEST 2004 - olh@suse.de
+
+- mkinitramfs: fix nfsroot to take nfsroot=server:/dir
+
+-------------------------------------------------------------------
+Mon May 24 14:23:55 CEST 2004 - hare@suse.de
+
+- Call devmap_mknod.sh if no udev is running
+
+-------------------------------------------------------------------
+Mon May 24 12:15:36 CEST 2004 - fehr@suse.de
+
+- load dm-snapshot additionally to dm-mod it is needed for some
+  configurations (#41022)
+
+-------------------------------------------------------------------
+Mon May 24 09:06:10 CEST 2004 - hare@suse.de
+
+- add support for LVM2 as root filesystem for S/390.
+
+-------------------------------------------------------------------
+Sun May 23 02:27:09 CEST 2004 - olh@suse.de
+
+- mkinitramfs: fix parsing of nfsroot=
+
+-------------------------------------------------------------------
+Wed May 19 01:14:29 CEST 2004 - garloff@suse.de
+
+- Remove iSCSI TODO comments.
+- BLIST_NOREPORTLUN has changed its value in the kernel.
+
+-------------------------------------------------------------------
+Thu May 13 18:07:54 CEST 2004 - fehr@suse.de
+
+- add support for EVMS volume as root filesystem
+
+-------------------------------------------------------------------
+Thu May 13 14:55:44 CEST 2004 - hare@suse.de
+
+- new-kernel-pkg: Only call zipl on S/390 if corresponding
+  configuration file exists.
+
+-------------------------------------------------------------------
+Tue May 11 11:24:00 CEST 2004 - agruen@suse.de
+
+- Install Kerntypes in /sbin/installkernel instead of in the
+  kernel makefiles: installkernel knows about /boot.
+
+-------------------------------------------------------------------
+Sun May  9 18:34:20 CEST 2004 - olh@suse.de
+
+- mkinitramfs: guess if root is on lvm
+  remove root_dir support. doesnt work as user because chroot
+  is required, and root can chroot anyway
+  doesnt need any hacks, just write a /bootsplash file (#39902)
+
+-------------------------------------------------------------------
+Wed May  5 17:55:38 CEST 2004 - agruen@suse.de
+
+- #39824: Fix bootsplash for non-standard resolutions.
+- #39893: Remove working directory and its contents.
+- Fix for lvm root with grub.
+
+-------------------------------------------------------------------
+Mon May  3 11:00:21 CEST 2004 - hare@suse.de
+
+- new-kernel-pkg: Fixed embarrasing bug in call to zipl
+  (called with -v instead of -V)
+
+-------------------------------------------------------------------
+Thu Apr 29 21:09:50 CEST 2004 - olh@suse.de
+
+- mkinitramfs:
+  handle root on jfs
+  put the fs driver for the root filesystem in the initrd, even
+  if it is not listed in INITRD_MODULES
+
+-------------------------------------------------------------------
+Tue Apr 27 17:37:32 CEST 2004 - fehr@suse.de
+
+- mkinitrd: add code to only activate the LVM VG that contains the
+  root fs to prevent problems as described in bug #32794
+
+-------------------------------------------------------------------
+Fri Apr 23 14:35:47 CEST 2004 - garloff@suse.de
+
+- mkinitrd: Add support for new syntax of passing scsi_mod params
+  with scsi_mod. prefix. Translate old options, where possible.
+
+-------------------------------------------------------------------
+Tue Apr 20 00:55:20 CEST 2004 - olh@suse.de
+
+- mkinitramfs changes:
+  copy raidautorun
+
+-------------------------------------------------------------------
+Mon Apr 19 17:59:13 CEST 2004 - olh@suse.de
+
+- mkinitramfs changes:
+  detect root on raid correctly
+
+-------------------------------------------------------------------
+Sun Apr 18 21:54:02 CEST 2004 - olh@suse.de
+
+- mkinitramfs changes:
+  workaround chicken/egg bug in mdadm and raidautorun
+  they do the ioctl on the not yet existing device node...
+
+-------------------------------------------------------------------
+Sat Apr 17 18:35:27 CEST 2004 - olh@suse.de
+
+- mkinitramfs changes:
+  remove files in initramfs to release memory
+  print hint if booted with 'debug'
+  be less verbose in mkinitramfs
+
+-------------------------------------------------------------------
+Wed Apr 14 12:18:48 CEST 2004 - hare@suse.de
+
+- Fixed loading of dasd module if no dasd= parameter is set.
+- Configure dasd devices via sysfs for empty dasd= parameter.
+
+-------------------------------------------------------------------
+Sun Apr  4 20:07:27 CEST 2004 - agruen@suse.de
+
+- Add a missing `fi'.
+- Explicitly create udev2 device inodes (--mknodes).
+
+-------------------------------------------------------------------
+Sat Apr  3 18:19:02 CEST 2004 - agruen@suse.de
+
+- #37290: Fix mkinitrd for root filesystem on lvm on software
+  raid; add fallback to scan sysfs if udev fails.
+
+-------------------------------------------------------------------
+Fri Apr  2 16:38:13 CEST 2004 - hare@suse.de
+
+- mkinitrd: Add support for large device numbers.
+
+-------------------------------------------------------------------
+Thu Apr  1 22:06:32 CEST 2004 - agruen@suse.de
+
+- Report failure if binaries are not found.
+- Add devnumber klibc binary.
+- Actually include raidautorun in the initrd.
+
+-------------------------------------------------------------------
+Thu Apr  1 16:17:41 CEST 2004 - agruen@suse.de
+
+- #32794: Run raidautorun also when the root filesystem is LVM but
+  not a RAID, and there are RAIDs configured in the rest of the
+  system: Otherwise lvm may wrongly think that the RAID is multipath
+    attached storage, and corrupt data.
+
+-------------------------------------------------------------------
+Tue Mar 30 22:43:31 CEST 2004 - agruen@suse.de
+
+- mkinitrd:
+  + Dereference symbolic link in hex_dev_number (fehr@suse.de).
+  + Get rid of static device numbers, clean up device number
+    checking.
+  + Remove -u option (to disable udev); it's mandatory now anyway.
+  + Don't run createpartitiondevs (an ash extension) with udev.
+  + Small fix for uml.
+
+-------------------------------------------------------------------
+Tue Mar 30 13:23:04 CEST 2004 - olh@suse.de
+
+- mkinitramfs: add sr_mod to initrd as a workaround for #37943
+  create /dev/shm earlier in /init
+  copy rm binary and /etc/sysconfig/hardware to initramfs
+
+-------------------------------------------------------------------
+Sun Mar 28 23:27:24 CEST 2004 - agruen@suse.de
+
+- Added support for S/390 zfcp disks with kernel 2.6
+  (hare@suse.de).
+- Fix syntax error checking for device mapper; cleanups.
+
+-------------------------------------------------------------------
+Thu Mar 25 13:36:57 CET 2004 - agruen@suse.de
+
+- Rework the entire nfs-root/dhcp/pivot-root logic.
+- Fix two issues in iscsi support.
+- Suport for device-mapper based root files (fehr@suse.de)
+- Fix udev/lvm/device-mapper initialization order.
+- Don't create static lvm/device-mapper inodes when using udev.
+
+-------------------------------------------------------------------
+Mon Mar 22 15:44:03 CET 2004 - agruen@suse.de
+
+- Copy the root filesystem device inode into the initrd only when
+  not using udev.
+- Don't leave DHCP mode when root=/dev/nfs. Add af_packet module
+  that is apparently needed by DHCP.
+- Don't use stat(1): it's missing on old distros.
+
+-------------------------------------------------------------------
+Fri Mar 19 14:57:50 CET 2004 - hare@suse.de
+
+- Update mkinitrd to use udev for creating device nodes.
+- Update mkinitrd to pick up modular IDE drivers.
+
+-------------------------------------------------------------------
+Tue Mar 16 14:16:14 CET 2004 - schwab@suse.de
+
+- Fix quoting.
+
+-------------------------------------------------------------------
+Tue Mar 16 10:48:16 CET 2004 - hare@suse.de
+
+- Fixed new-kernel-pkg for correctly updating /etc/zipl.conf.
+
+-------------------------------------------------------------------
+Tue Mar  9 21:47:08 CET 2004 - olh@suse.de
+
+- mkinitramfs: create nodes for ppp and fb0, no sysfs support yet
+
+-------------------------------------------------------------------
+Tue Mar  9 16:49:43 CET 2004 - olh@suse.de
+
+- quote variables in mkinitramfs for here documents
+
+-------------------------------------------------------------------
+Tue Mar  9 01:52:58 CET 2004 - olh@suse.de
+
+- add mkinitramfs as mkinitrd on ppc
+  mounts /dev as tmpfs, requires 2.6 kernel
+
+-------------------------------------------------------------------
+Wed Mar  3 15:15:38 CET 2004 - agruen@suse.de
+
+- A small cleanup in the mkinitrd script.
+
+-------------------------------------------------------------------
+Mon Mar  1 02:05:11 CET 2004 - agruen@suse.de
+
+- Clean up vga mode parsing for the boot splash.
+- Mount /proc and /sys at the beginning of linuxrc, and unmount
+  them at the end.
+- Add iscsi support (patch from David Wysochanski
+  <davidw@netapp.com> via Kurt Garloff <garloff@suse.de>).
+- Update dasd configuration to kernel 2.6.
+
+-------------------------------------------------------------------
+Thu Feb 26 14:54:06 CET 2004 - agruen@suse.de
+
+- mkinitrd: Some more quoting fixes.
+- new-kernel-pkg: Merging the lilo and elilo branches broke; lilo
+  was accidentally invoked in both cases.
+
+-------------------------------------------------------------------
+Wed Feb 25 14:09:29 CET 2004 - schwab@suse.de
+
+- Fix syntax error in linuxrc.
+
+-------------------------------------------------------------------
+Tue Feb 24 15:17:01 CET 2004 - agruen@suse.de
+
+- mkinitrd: Too much quoting removed in last change.
+
+-------------------------------------------------------------------
+Tue Feb 24 03:09:48 CET 2004 - agruen@suse.de
+
+- Clean up the code in several places. Use $(..) instead of `..`.
+- Add special case for /dev/cciss/* devices. A better solution is
+  required; there are a lot more cases where there is no trivial
+  mapping between the device inode under /dev and its sysfs entry.
+
+-------------------------------------------------------------------
+Mon Feb 23 19:49:02 CET 2004 - agruen@suse.de
+
+- mkinitrd:
+  + Clean up some s390 specific stuff.
+  + Add & use do_chroot function.
+  + Instead of parsing /etc/modules.conf, parse the output of
+    modprobe -c.
+- new-kernel-pkg: Merge almost-identical lilo + elilo cases.
+
+-------------------------------------------------------------------
+Fri Feb 20 13:37:43 CET 2004 - agruen@suse.de
+
+- mkinitrd: Fix check parsing zipl.conf in s390_dasd().
+
+-------------------------------------------------------------------
+Fri Feb 20 02:07:04 CET 2004 - agruen@suse.de
+
+- #34736: Handle whitespace in zipl.conf correctly.
+
+-------------------------------------------------------------------
+Mon Feb 16 17:13:23 CET 2004 - hare@suse.de
+
+- Added S/390 zipl support in new-kernel-pkg.
+
+-------------------------------------------------------------------
+Mon Feb  2 17:50:51 CET 2004 - agruen@suse.de
+
+- Add device mapper / lvm2 support (from sbose@suse.de).
+
+-------------------------------------------------------------------
+Fri Jan 16 17:36:01 CET 2004 - schwab@suse.de
+
+- Run elilo in new-kernel-pkg.
+
+-------------------------------------------------------------------
+Fri Dec  5 15:16:06 CET 2003 - hare@suse.de
+
+- Checked out new version from CVS: Removed s390 special case
+  for image selection.
+
+-------------------------------------------------------------------
+Thu Dec  4 16:16:58 CET 2003 - ro@suse.de
+
+- added manpage mkinitrd.8
+
+-------------------------------------------------------------------
+Wed Nov 26 14:01:53 CET 2003 - agruen@suse.de
+
+- Fix a syntax error and the module list info (don't show params).
+
+-------------------------------------------------------------------
+Sat Nov 22 11:38:37 CET 2003 - agruen@suse.de
+
+- Re-add patch from Carsten Grohmann (which was accidentally lost
+  beacuse it was not committed to the CVS).
+
+-------------------------------------------------------------------
+Fri Nov 21 12:05:25 CET 2003 - agruen@suse.de
+
+- Update for 2.6 kernel on s390 and zSeries (hare@suse.de).
+- Invoke /sbin/elilo to update the efi partition on ia64.
+
+-------------------------------------------------------------------
+Tue Nov 18 13:43:38 CET 2003 - kukuk@suse.de
+
+- Loading SELinux policy: Add patch from Carsten Grohmann for
+  better output.
+
+-------------------------------------------------------------------
+Tue Nov 11 15:53:59 CET 2003 - agruen@suse.de
+
+- Scan kernel cmdline, and pass scsi parameters to scsi_mod:
+  Otherwise no scsi params can be passed on the cmdline.
+
+-------------------------------------------------------------------
+Tue Oct 28 17:05:17 CET 2003 - agruen@suse.de
+
+- Add `-C /etc/modprobe.conf' only if this file actually exists:
+  The modprobe for 2.6 kernels can also run without a config
+  file.
+
+-------------------------------------------------------------------
+Mon Oct 27 16:00:25 CET 2003 - agruen@suse.de
+
+- Increase the initial initrd image size: 10000 1k blocks
+  is too small for the k_debug kernel.
+
+-------------------------------------------------------------------
+Thu Oct 23 12:59:41 CEST 2003 - agruen@suse.de
+
+- Fix for #32625: mkinitrd handles `-b /' incorrectly.
+- Handle use_selinux like all other flags.
+- From snwint@suse.de (+changes from me): Fix bootsplash on SLES8.
+- From bk@suse.de: Some zfcp fixes.
+
+-------------------------------------------------------------------
+Wed Oct 15 20:00:57 CEST 2003 - kukuk@suse.de
+
+- Fix selinux support
+- Always use mount/umount -n in initrd
+- Always create initrd if selinux support is requested
+
+-------------------------------------------------------------------
+Wed Oct 15 13:35:15 CEST 2003 - kukuk@suse.de
+
+- Add optional selinux support
+
+-------------------------------------------------------------------
+Fri Oct 10 10:23:45 CEST 2003 - schwab@suse.de
+
+- Fix typo.
+
+-------------------------------------------------------------------
+Fri Oct 10 08:53:22 CEST 2003 - agruen@suse.de
+
+- Skip over linux-gate.so.1, which is a library mapped into the
+  process by 2.6 kernels.
+
+-------------------------------------------------------------------
+Thu Oct  9 14:47:47 CEST 2003 - agruen@suse.de
+
+- Fix vga mode parsing (wrongly was taking "ex" for a hex number).
+- Use generic versions of libraries: On some systems we have
+  generic as well as optimized libraries, but the optimized
+  libraries may not work with all kernel versions.
+
+-------------------------------------------------------------------
+Thu Oct  2 18:58:55 CEST 2003 - bk@suse.de
+
+- fix initrd creation on S/390(only tested w/ dasd, not with zfcp!)
+- pass module parameters from /etc/modules.conf to linuxrc
+
+-------------------------------------------------------------------
+Wed Oct  1 09:38:34 CEST 2003 - schwab@suse.de
+
+- new-kernel-pkg: handle elilo.
+
+-------------------------------------------------------------------
+Mon Sep 29 22:01:49 CEST 2003 - kukuk@suse.de
+
+- Add %defattr
+
+-------------------------------------------------------------------
+Mon Sep 29 20:00:32 CEST 2003 - agruen@suse.de
+
+- There is no mkdir in the initrd: Create all needed directories
+  when creating the initrd.  Use `mkdir -p' instead of `mkdir'.
+- A minor cleanup.
+
+-------------------------------------------------------------------
+Tue Sep 23 15:55:40 CEST 2003 - agruen@suse.de
+
+- The previous change from using killall to kill was incomplete
+  (kill is located in /bin; killall is in /usr/bin).
+- Temporary mount shm to /etc/lvmtab.d to create space for lvm
+  commands (#26073).
+- Add some changes that got lost with the previous update.
+
+-------------------------------------------------------------------
+Fri Sep 19 03:00:30 CEST 2003 - agruen@suse.de
+
+- new-kernel-pkg: Change /dev/stderr to &2 -- otherwise it fails
+  in build envs.
+
+-------------------------------------------------------------------
+Thu Sep 18 10:35:05 CEST 2003 - kraxel@suse.de
+
+- linuxrc does rootfs device scan via sysfs after loading the
+  modules.  2.6.x kernels only, fixes bug #30771.
+
+-------------------------------------------------------------------
+Tue Sep 16 16:10:01 CEST 2003 - agruen@suse.de
+
+- Add missing $root_dir prefixes, and replace some remaining
+  occurrences of `/boot' with $boot_dir.
+- Prevent readlink macro from printing an error message for missing
+  files (the "real" readlink also fails without messages).
+- Add xfs_dmapi and xfs_support to the list of modules that may
+  be missing without causing an error (they no longer exist).
+- Add md to list of introduced modules.
+- temporarly mount shm to /etc in the linuxrc script to have more
+  space available for lvm commands (#26073).
+
+-------------------------------------------------------------------
+Thu Sep  4 09:08:24 CEST 2003 - agruen@suse.de
+
+- Add xfs_dmapi and xfs_support to the list of modules that may
+  be missing without causing an error (they no longer exist).
+- Fix typo, add md to list of introduced modules, minor clean-ups.
+
+-------------------------------------------------------------------
+Mon Sep  1 15:23:24 CEST 2003 - agruen@suse.de
+
+- Put mkinird script under cvs control, and remove the inconsistent
+  change log that used to be part of the script. The repository
+  location is: /suse/yast2/cvsroot/mkinitrd/.
+- Remove now-obsolete oem resize support.
+
+-------------------------------------------------------------------
+Mon Sep  1 12:53:22 CEST 2003 - mls@suse.de
+
+- dhcp: allow servername in rootpath (#29791)
+
+-------------------------------------------------------------------
+Sun Aug 31 23:40:35 CEST 2003 - agruen@suse.de
+
+- Fix broken check: mount, umount and the surrounding files were
+  missing in initrd's.
+
+-------------------------------------------------------------------
+Wed Aug 27 15:50:14 CEST 2003 - agruen@suse.de
+
+- Prevent mkinitrd warnings for scsi_mod and sd_mod, which may
+  have been added to INITRD_MODULES implicitly after a kernel
+  update.
+- Another minor fix in the ACPI DSDT code.
+
+-------------------------------------------------------------------
+Tue Aug 26 17:34:21 CEST 2003 - agruen@suse.de
+
+- Clean up ACPI DSDT code.
+- Add internal option use_static_binaries than can be turned off
+  to use dynamically linked binaries (for bug hunting).
+- Fix for systems that don't have a modprobe.old binary.
+
+-------------------------------------------------------------------
+Mon Aug 25 01:17:22 CEST 2003 - ro@suse.de
+
+- fix syntax error in last change
+
+-------------------------------------------------------------------
+Fri Aug 22 17:28:07 CEST 2003 - trenn@suse.de
+
+- Added support to attach an DSDT (acpi) to the initrd
+  there will exist a kernel option soon, to load a DSDT from
+  the initrd and substitute the DSDT from the BIOS.
+  The compiled DSDT can be indicated either in /etc/sysconfig/kernel for permanent
+  load or the path to the DSDT can be given to mkinitrd  via the -a parameter
+
+-------------------------------------------------------------------
+Thu Aug 14 10:12:23 CEST 2003 - agruen@suse.de
+
+- Don't depend on /usr/bin/readlink utility: it is not present
+  on older distributions.
+
+-------------------------------------------------------------------
+Fri Aug  8 15:43:12 CEST 2003 - agruen@suse.de
+
+- Automatically also require sd_mod (SCSI disk) if scsi_mod is
+  required: It is reasonable to assume that the root file system
+  is on a SCSI disk in that case.
+
+-------------------------------------------------------------------
+Fri Aug  8 14:21:06 CEST 2003 - agruen@suse.de
+
+- Fix a check in mkinird script: No need to invoke initrd on
+  /boot/vmlinuz if that file is a symlink.
+- Update mkinitrd help text.
+
+-------------------------------------------------------------------
+Tue Aug  5 17:10:00 CEST 2003 - agruen@suse.de
+
+- Don't call rpm from inside mkinitrd: mkinitrd is itself called
+  from rpm in the binary kernel packages; recursive rpm is not
+  possible.
+- Fix bugs if mkinitrd is called with a different root directory.
+- Unclutter mkinitrd's output.
+- #28484: Use kill instead of killall in the initrd in the dhcp
+  specific code: killall apparently would require an additional
+  shared library.
+
+-------------------------------------------------------------------
+Thu Jul 31 16:05:55 CEST 2003 - agruen@suse.de
+
+- Fix heuristic for recognizing installed kernel RPMs and their
+  binary image files.
+- If /boot/vmlinuz is a symlink to /boot/vmlinuz-$VERSION and
+  /boot/initrd is a regular file, replace /boot/initrd with a
+  symbolic link to /boot/initrd-$VERSION when creating that
+  initrd image. This ensures that /boot/vmlinuz and /boot/initrd
+  belong to the same kernel.
+
+-------------------------------------------------------------------
+Mon Jul 28 12:18:46 CEST 2003 - agruen@suse.de
+
+- Fix test which version of modprobe to use (was testing
+  for 2.5.*).
+
+-------------------------------------------------------------------
+Wed Jul 16 13:11:24 CEST 2003 - kraxel@suse.de
+
+- fix creation of mk_initrd link.
+
+-------------------------------------------------------------------
+Wed Jul  2 20:20:39 CEST 2003 - kraxel@suse.de
+
+- build initrds for all installed kernel rpms.
+- fix 2.5.x issues.
+
+-------------------------------------------------------------------
+Fri Jun  6 18:13:18 CEST 2003 - agruen@suse.de
+
+- new-kernel-pkg was in DOS file format: How did *that* happen ??
+- mkinitrd:
+  + Recognize correctly if no modules are being used.
+  + Pipe config file to depmod via stdin so chroot doesn't matter.
+
+-------------------------------------------------------------------
+Fri Jun  6 10:38:01 CEST 2003 - schwab@suse.de
+
+- Handle LOADER_TYPE elilo.
+- Fix syntax errors.
+
+-------------------------------------------------------------------
+Wed Jun  4 18:13:31 CEST 2003 - agruen@suse.de
+
+- Merge in improved mkinitrd script. There are a number of
+  comments tagged with FIXME that seem unclear to me.
+
+-------------------------------------------------------------------
+Tue Jun  3 14:57:35 CEST 2003 - stepan@suse.de
+
+- Get bootsplash theme name dynamically from sysconfig file.
+  This obsoletes SuSEconfig.bootsplash
+
+-------------------------------------------------------------------
+Mon May 26 12:40:59 CEST 2003 - agruen@suse.de
+
+- Remove initial install vs. upgrade logic from new-kernel-pkg
+  script. This is better dealt with in the k_* spec files. Invoke
+  new-kernel-pkg script with the version of the kernel as $1
+  (e.g., "2.4.20-99-default").
+- Adjust installkernel script to new-kernel-pkg changes.
+
+-------------------------------------------------------------------
+Thu May 22 15:28:50 CEST 2003 - agruen@suse.de
+
+- Split /sbin/mk_initrd from aaa_base.
+- New /sbin/installkernel that is used be `make install' in the
+  kernel sources.
+- New /sbin/new-kernel-pkg scripts that kicks the boot loader
+  (mainly lilo) after the kernel/initrd image has changed.
