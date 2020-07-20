@@ -1,0 +1,48 @@
+================
+HOST ENVIRONMENT
+================
+ubuntu 20.04 (kernel 5.4.0-28-generic)
+Xen branch -> origin/stable-4.11 (only build xen tools from native)
+GCC Version -> GCC-7 (sudo apt install gcc-7)
+
+
+==================
+BUILD DEPENDENCIES
+==================
+install script install-pre-ubu18-xen4.10.0.sh in Xen_Devel folder (Git Location: https://gist.github.com/cnlelema/5f14675364a47c6ffa7e34bb6d3ad470) {pre-req install}
+sudo apt install gcc-7 (pre-req install)
+https://medium.com/@rajputankit22/upgrade-python-2-7-to-3-6-and-3-7-in-ubuntu-97d2727bf911 (not always -> python 2.7 to 3.7)
+sudo apt install python3.7-dev (not always -> install specific python dev due to Python.h not found error)
+
+====================
+compile from sources
+====================
+git clone https://github.com/openSUSE/mkinitrd.git
+cd mkinitrd
+sudo cp sbin/installkernel /sbin/installkernel
+git clone git://xenbits.xen.org/xen.git (Clone to xen repo)
+git checkout origin/stable-4.11 (checkout 4.11 repo)
+sudo make distclean -j8 CC=gcc7 (dist clean repo for previous build)
+sudo ./configure --libdir=/usr/local --enable-systemd (configure)
+sudo make dist-xen -j8 CC=gcc-7 (build xen)
+sudo make install-xen -j8 CC=gcc-7 (install xen)
+sudo /sbin/ldconfig (update ldconfig)
+sudo gedit /etc/default/grub (udpate grub to remove timeout)
+sudo update-grub (update grub)
+sudo reboot (reboot system and switch to xen)
+sudo apt install xen-tools (install xen tools within same hypervisor)
+https://wiki.xenproject.org/wiki/Compiling_Xen_From_Source (do post installation steps)
+
+=============
+Dom-U Install
+=============
+pvcreate /dev/sda3
+sudo vgcreate vg0 /dev/sda3
+sudo xen-create-image --hostname=bionic-guest   --memory=512mb   --vcpus=2   --lvm=vg0   --dhcp   --pygrub   --dist=bionic
+
+
+================
+Install PV Guest
+================
+- Install minimal cd of ubuntu through VNC (ehternet)
+
