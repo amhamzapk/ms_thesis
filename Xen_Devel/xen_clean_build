@@ -1,0 +1,25 @@
+#!/bin/bash
+SLEEP_INTERVAL=0
+cd /home/hamza/hdd/Xen_Development/source/xen
+echo "changed directory done"
+sleep $SLEEP_INTERVAL
+
+sudo make distclean -j8 CC=gcc-7
+echo "clean done"
+sleep $SLEEP_INTERVAL
+
+sudo ./configure --libdir=/usr/local --enable-systemd
+echo "configured done"
+sleep $SLEEP_INTERVAL
+
+sudo make dist-xen -j8 CC=gcc-7
+echo "build done"
+sleep $SLEEP_INTERVAL
+
+sudo make install-xen -j8 CC=gcc-7
+echo "isntall done"
+sleep $SLEEP_INTERVAL
+
+sudo /sbin/ldconfig
+echo "library build done"
+sleep $SLEEP_INTERVAL
