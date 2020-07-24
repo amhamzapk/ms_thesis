@@ -1,0 +1,18 @@
+=====================
+Add line to interface
+=====================
+
+auto xenbr0
+
+iface xenbr0 inet dhcp
+    bridge_ports enp1s0
+
+===============
+Network Restart
+===============
+
+sudo systemcl restart networking.services
+
+===========
+
+===========
