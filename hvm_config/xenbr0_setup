@@ -1,0 +1,20 @@
+=====================
+Add line to interface
+=====================
+
+#auto xenbr0
+//Add only this line to the interface and we will up by command sudo ifup xenbr0
+iface xenbr0 inet dhcp
+    bridge_ports enp1s0
+
+===============
+Network Restart
+===============
+
+sudo systemcl restart networking.services
+
+==========
+Add bridge
+==========
+
+sudo ifup xenbr0

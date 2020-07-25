@@ -1,0 +1,5 @@
+Follow https://help.ubuntu.com/community/Xen (Section # Manually installing a HVM Guest VM) for more information
+
+xl create ubuntu_hvm.cfg // For creating hvm guest from provided configuration
+
+gvncviewer localhost:0 // since guest will be running in localhost, access the guest.
