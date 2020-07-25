@@ -1,6 +1,6 @@
 #!/bin/bash
 SLEEP_INTERVAL=0
-cd /home/hamza/hdd/Xen_Development/source/xen
+cd /home/hamza/MS_Thesis/ms_thesis/Xen_Devel/xen_stable_4.11
 echo "changed directory done"
 sleep $SLEEP_INTERVAL
 
